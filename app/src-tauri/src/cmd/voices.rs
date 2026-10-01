@@ -4,15 +4,16 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tauri::{AppHandle, Emitter, Manager, State};
 
+use tts_common::wavio;
+
 use crate::cmd::tts::{now_ms, ref_cache_file, voice_name, ChannelSink, Fwd, RefFile};
-use crate::models::ModelKind;
 use crate::state::{AppCtx, AppState};
 use crate::store::{self, Voice};
 
-/// Transcript lives inside each model's code cache; read the s1-mini copy
-/// first, then the OmniVoice one.
+/// Transcript lives inside the code cache; legacy voices (pre-OmniVoice
+/// builds) kept it in `ref.json`, so read that as a fallback.
 fn read_transcript(dir: &std::path::Path) -> Option<String> {
-    ["ref.json", "ref.omni.json"]
+    ["ref.omni.json", "ref.json"]
         .iter()
         .find_map(|f| store::read_json::<RefFile>(&dir.join(f)).ok())
         .map(|rf| rf.transcript)
@@ -138,28 +139,28 @@ fn encode_ref_into(
     let res = (|| -> anyhow::Result<f64> {
         let sink = ChannelSink { tx };
         let state: State<'_, AppState> = app.state();
-        // engine must exist (the active model encodes the reference)
+        // engine must exist (it encodes the reference)
         crate::cmd::tts::ensure_engine(&state, &sink)?;
-        let kind = state.settings.read().unwrap().kind();
         let codes = {
             let mut eng = state.engine.lock().unwrap();
             let eng = eng.as_mut().expect("engine ensured above");
             eng.encode_reference(sample, &sink)?
         };
         std::fs::create_dir_all(dir)?;
-        // keep a 44.1k pcm16 copy of the reference for auditioning (also the
-        // lazy-encoding source for the other model's cache)
-        let (samples, sr) = voxwaver_core::wavio::read_wav_mono(sample)?;
-        let samples = voxwaver_core::wavio::resample(&samples, sr, 44100);
-        voxwaver_core::wavio::write_wav(&dir.join("ref.wav"), &samples, 44100, true)?;
+        // keep a 24k pcm16 copy of the reference for auditioning (also the
+        // lazy-encoding source when the cache is missing)
+        let rate = omnivoice::config::SAMPLE_RATE;
+        let (samples, sr) = wavio::read_wav_mono(sample)?;
+        let samples = wavio::resample(&samples, sr, rate);
+        wavio::write_wav(&dir.join("ref.wav"), &samples, rate, true)?;
         store::write_json(
-            &dir.join(ref_cache_file(kind)),
+            &dir.join(ref_cache_file()),
             &RefFile {
                 transcript: transcript.to_string(),
                 codes,
             },
         )?;
-        Ok(samples.len() as f64 / 44100.0)
+        Ok(samples.len() as f64 / rate as f64)
     })();
     // dropping `tx` closed the channel; drain remaining events
     let _ = fwd.join();
@@ -269,10 +270,10 @@ pub async fn update_voice(
             voice.sample_seconds =
                 encode_ref_into(&app_blk, &dir, sample, req.transcript.trim())?;
         } else {
-            // transcript may still have been edited: rewrite it into every
-            // per-model cache present on disk
-            for kind in [ModelKind::S1Mini, ModelKind::OmniVoice] {
-                let path = dir.join(ref_cache_file(kind));
+            // transcript may still have been edited: rewrite it into the
+            // code cache (and the legacy file, when present)
+            for f in ["ref.omni.json", "ref.json"] {
+                let path = dir.join(f);
                 if let Ok(mut rf) = store::read_json::<RefFile>(&path) {
                     rf.transcript = req.transcript.trim().to_string();
                     store::write_json(&path, &rf)?;
@@ -310,7 +311,7 @@ pub fn delete_voice(app: AppHandle, id: String) -> Result<(), String> {
 }
 
 /// Persist mono PCM from the webview (mic recording or decoded MP3) as a
-/// 44.1 kHz PCM16 WAV and return its path, usable as a clone sample.
+/// 24 kHz PCM16 WAV and return its path, usable as a clone sample.
 #[tauri::command]
 pub fn save_recorded_sample(
     app: AppHandle,
@@ -324,8 +325,9 @@ pub fn save_recorded_sample(
     let dir = ctx.dirs().samples_dir();
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let path = dir.join(format!("{}.wav", uuid::Uuid::new_v4()));
-    let samples = voxwaver_core::wavio::resample(&samples, sample_rate, 44100);
-    voxwaver_core::wavio::write_wav(&path, &samples, 44100, true).map_err(|e| e.to_string())?;
+    let rate = omnivoice::config::SAMPLE_RATE;
+    let samples = wavio::resample(&samples, sample_rate, rate);
+    wavio::write_wav(&path, &samples, rate, true).map_err(|e| e.to_string())?;
     Ok(path.to_string_lossy().into_owned())
 }
 

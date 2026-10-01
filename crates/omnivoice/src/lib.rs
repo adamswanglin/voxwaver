@@ -47,9 +47,8 @@ pub(crate) fn linear(
 }
 
 /// Split `text` into chunks whose estimated duration is at most `max_frames`
-/// each, preferring sentence boundaries (mirrors voxwaver-core's
-/// `split_chunks`, with the byte budget replaced by the duration estimator's
-/// char weights so CJK and Latin text pack to comparable audio lengths).
+/// each, preferring sentence boundaries; the duration estimator's char
+/// weights make CJK and Latin text pack to comparable audio lengths.
 pub fn split_chunks(text: &str, max_frames: f64) -> Vec<String> {
     if text.is_empty() {
         return Vec::new();
@@ -60,7 +59,7 @@ pub fn split_chunks(text: &str, max_frames: f64) -> Vec<String> {
     let max_weight = max_frames * duration::total_weight(config::DURATION_REF_TEXT)
         / config::DURATION_REF_FRAMES;
 
-    // Sentence boundaries (same punctuation set as voxwaver-core).
+    // Sentence boundaries.
     let mut sentences: Vec<String> = Vec::new();
     let mut cur = String::new();
     for ch in text.chars() {
@@ -136,6 +135,32 @@ pub fn default_device(force_cpu: bool) -> anyhow::Result<candle_core::Device> {
     }
     #[allow(unreachable_code)]
     Ok(Device::Cpu)
+}
+
+/// Resolve a device selector (cpu|cuda|metal|auto) into a candle `Device`.
+pub fn select_device(sel: &str) -> anyhow::Result<candle_core::Device> {
+    use candle_core::Device;
+    match sel {
+        "cpu" => Ok(Device::Cpu),
+        "cuda" => Device::new_cuda(0).map_err(|e| anyhow::anyhow!("CUDA device requested but unavailable: {e}")),
+        "metal" => Device::new_metal(0).map_err(|e| anyhow::anyhow!("Metal device requested but unavailable: {e}")),
+        "auto" => {
+            #[cfg(feature = "metal")]
+            {
+                if let Ok(d) = Device::new_metal(0) {
+                    return Ok(d);
+                }
+            }
+            #[cfg(feature = "cuda")]
+            {
+                if let Ok(d) = Device::new_cuda(0) {
+                    return Ok(d);
+                }
+            }
+            Ok(Device::Cpu)
+        }
+        other => anyhow::bail!("unknown device {other:?} (cpu|cuda|metal|auto)"),
+    }
 }
 
 #[cfg(test)]

@@ -31,11 +31,6 @@ const DEVICE_OPTIONS = [
   { id: 'cuda', title: 'CUDA', sub: 'NVIDIA GPU 加速', recommended: false },
 ] as const
 
-const DTYPE_OPTIONS = [
-  { id: 'bf16', title: 'BF16', sub: '低精度', mem: '~3 GB' },
-  { id: 'f32', title: 'F32', sub: '高精度', mem: '~6 GB' },
-] as const
-
 export function SettingsModal() {
   const openState = useView((s) => s.settingsOpen)
   const setOpen = useView((s) => s.setSettingsOpen)
@@ -53,18 +48,11 @@ export function SettingsModal() {
     if (settings) void save({ ...settings, ...p })
   }
 
-  const activeModel = settings?.model ?? 's1-mini'
-  const isOmni = activeModel === 'omnivoice'
-
-  // 'auto' follows the recommended pick (Metal / BF16) for display
+  // 'auto' follows the recommended pick (Metal) for display
   const device = settings?.device === 'cpu' || settings?.device === 'cuda' ? settings.device : 'metal'
-  const dtype = settings?.dtype === 'f32' ? 'f32' : 'bf16'
   // legacy value from earlier builds
   const uiLang = settings?.language === 'zh-CN' ? 'zh' : (settings?.language ?? 'zh')
   // sampling params, persisted with the rest of the settings
-  const temperature = settings?.temperature ?? 0.7
-  const topP = settings?.topP ?? 0.7
-  const repetitionPenalty = settings?.repetitionPenalty ?? 1.5
   const omniTemperature = settings?.omniTemperature ?? 0
   const seed = settings?.seed ?? 0
 
@@ -161,96 +149,21 @@ export function SettingsModal() {
                 </div>
               </div>
 
-              {/* 计算精度（s1-mini only） */}
-              <div className="form-group" style={{ marginBottom: 18 }}>
-                <label className="settings-label">计算精度</label>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {DTYPE_OPTIONS.map((o) => (
-                    <button
-                      key={o.id}
-                      className={`option-card ${dtype === o.id && !isOmni ? 'selected' : ''} ${isOmni ? 'disabled' : ''}`}
-                      style={{ flex: 1 }}
-                      disabled={isOmni}
-                      onClick={() => patch({ dtype: o.id })}
-                    >
-                      <div>
-                        <span className="option-title">{o.title}</span>
-                        <span
-                          className="option-sub"
-                          style={{ display: 'inline', marginLeft: 4 }}
-                        >
-                          {o.sub}
-                        </span>
-                      </div>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 600,
-                          marginLeft: 'auto',
-                          color: o.id === 'bf16' ? 'var(--seed-primary)' : 'var(--text-tertiary)',
-                        }}
-                      >
-                        {o.mem}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                <div className="slider-hint" style={{ marginTop: 6 }}>
-                  {isOmni
-                    ? 'OmniVoice 权重为 F32，固定精度运行。'
-                    : '切换设备或精度后，下次生成会自动重新加载模型权重。'}
-                </div>
-              </div>
-
               {/* 采样参数 */}
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="settings-label">采样参数</label>
-                {isOmni ? (
-                  <>
-                    <Slider
-                      label="温度（OmniVoice）"
-                      value={omniTemperature}
-                      min={0}
-                      max={1.5}
-                      step={0.05}
-                      format={(v) => (v === 0 ? '贪心' : v.toFixed(2))}
-                      onChange={(omniTemperature) => patch({ omniTemperature })}
-                    />
-                    <div className="slider-hint" style={{ marginTop: 6 }}>
-                      0 为贪心解码（与上游 CLI 默认一致）；其余采样超参使用引擎默认值。
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <Slider
-                      label="温度"
-                      value={temperature}
-                      min={0.1}
-                      max={1.5}
-                      step={0.05}
-                      format={(v) => v.toFixed(2)}
-                      onChange={(temperature) => patch({ temperature })}
-                    />
-                    <Slider
-                      label="Top-P"
-                      value={topP}
-                      min={0.1}
-                      max={1.0}
-                      step={0.05}
-                      format={(v) => v.toFixed(2)}
-                      onChange={(topP) => patch({ topP })}
-                    />
-                    <Slider
-                      label="重复惩罚"
-                      value={repetitionPenalty}
-                      min={1.0}
-                      max={2.0}
-                      step={0.05}
-                      format={(v) => v.toFixed(2)}
-                      onChange={(repetitionPenalty) => patch({ repetitionPenalty })}
-                    />
-                  </>
-                )}
+                <Slider
+                  label="温度（OmniVoice）"
+                  value={omniTemperature}
+                  min={0}
+                  max={1.5}
+                  step={0.05}
+                  format={(v) => (v === 0 ? '贪心' : v.toFixed(2))}
+                  onChange={(omniTemperature) => patch({ omniTemperature })}
+                />
+                <div className="slider-hint" style={{ marginTop: 6 }}>
+                  0 为贪心解码（与上游 CLI 默认一致）；其余采样超参使用引擎默认值。
+                </div>
                 <div className="form-group" style={{ marginBottom: 0, marginTop: 14 }}>
                   <label className="form-label">随机种子</label>
                   <div style={{ display: 'flex', gap: 8 }}>
@@ -296,7 +209,6 @@ function ModelCard({
   const cancelDownload = useSettings((s) => s.cancelDownload)
   const deleteModel = useSettings((s) => s.deleteModel)
 
-  const isOmni = status.model === 'omnivoice'
   const downloadingThis = download?.model === status.model
   const dlPct =
     downloadingThis && download!.total > 0 ? (download!.downloaded / download!.total) * 100 : 0
@@ -317,9 +229,7 @@ function ModelCard({
             width: 40,
             height: 40,
             borderRadius: 10,
-            background: isOmni
-              ? 'linear-gradient(135deg,#f093fb,#f5576c)'
-              : 'linear-gradient(135deg,#667eea,#764ba2)',
+            background: 'linear-gradient(135deg,#f093fb,#f5576c)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -349,8 +259,7 @@ function ModelCard({
             )}
           </div>
           <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>
-            {isOmni ? 'Qwen3 迭代解码 · 24 kHz · 支持克隆与风格指令' : 'dual-AR · 44.1 kHz · 支持声音克隆'} ·{' '}
-            {isOmni ? '~3.3 GB' : '~3.6 GB'}
+            Qwen3 迭代解码 · 24 kHz · 支持克隆与风格指令 · ~3.3 GB
           </div>
         </div>
         {status.active ? (
@@ -413,30 +322,14 @@ function ModelCard({
             <IconUpload />
             <div style={{ flex: 1 }}>
               <div className="option-title">从 HuggingFace 下载</div>
-              <div className="option-sub">
-                {isOmni ? 'k2-fsa/OmniVoice' : 'fishaudio/s1-mini'} · 海外源
-              </div>
+              <div className="option-sub">k2-fsa/OmniVoice · 海外源</div>
             </div>
           </button>
-          {!isOmni && (
-            <button
-              className="install-option"
-              onClick={() => void downloadModel(status.model, 'modelscope')}
-            >
-              <IconUpload />
-              <div style={{ flex: 1 }}>
-                <div className="option-title">从魔搭 ModelScope 下载</div>
-                <div className="option-sub">fishaudio/s1-mini · 国内加速</div>
-              </div>
-            </button>
-          )}
           <button className="install-option" onClick={() => void importLocal(status.model)}>
             <IconFolder />
             <div style={{ flex: 1 }}>
               <div className="option-title">选择本地模型文件夹</div>
-              <div className="option-sub">
-                {isOmni ? '需包含 model.safetensors 和 audio_tokenizer/' : '需包含 model.pth 和 codec.pth'}
-              </div>
+              <div className="option-sub">需包含 model.safetensors 和 audio_tokenizer/</div>
             </div>
           </button>
         </div>

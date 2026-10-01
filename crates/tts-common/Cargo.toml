@@ -2,8 +2,10 @@
 name = "tts-common"
 version = "0.1.0"
 edition = "2021"
-description = "Shared cancellation flag and progress reporting types for the TTS engines"
-license = "CC-BY-NC-SA-4.0"
+description = "Shared cancellation, progress reporting, and WAV I/O for the TTS engines"
+license = "Apache-2.0"
 
 [dependencies]
+anyhow = "1"
+hound = "3"
 serde = { version = "1", features = ["derive"] }

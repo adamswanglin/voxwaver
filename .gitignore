@@ -2,16 +2,15 @@
 /target
 **/*.rs.bk
 
-# Generated audio output (CLI default: out.wav)
+# Generated audio output
 *.wav
 
 # Model weights & checkpoints (downloaded separately)
-*.pth
 *.safetensors
 *.ckpt
 *.bin
 
-# Python (scripts/dump_reference.py)
+# Python (scripts/)
 __pycache__/
 *.py[cod]
 

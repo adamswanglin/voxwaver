@@ -4,7 +4,7 @@
 //! The file is a serialized `tokenizers` pipeline: NFC normalizer + the GPT-2
 //! pre-tokenize regex + byte-level BPE, plus 33 `added_tokens` that include
 //! the seven `<|denoise|>…<|text_end|>` control tokens (151669..151675).
-//! The encode path mirrors `cosyvoice::tokenizer`: NFC, added-token splitting
+//! The encode path: NFC, added-token splitting
 //! (longest match wins), regex split, then rank-ordered BPE merges.
 
 use anyhow::{Context, Result};
@@ -85,8 +85,7 @@ impl Tokenizer {
             .map(|t| (t.content, t.id))
             .collect();
         added_by_len.sort_by_key(|t| std::cmp::Reverse(t.0.len()));
-        // Same pre-tokenize regex as tokenizer.json's Split pre-tokenizer
-        // (and as cosyvoice's Qwen2 converter).
+        // Pre-tokenize regex matching tokenizer.json's Split pre-tokenizer.
         let pat = Regex::new(
             r#"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+"#,
         )?;

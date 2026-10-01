@@ -3,7 +3,7 @@
 use mp3lame_encoder::{Builder, DualPcm, FlushNoGap};
 use tauri::{AppHandle, Manager};
 use tauri_plugin_opener::OpenerExt;
-use voxwaver_core::wavio;
+use tts_common::wavio;
 
 use crate::state::AppCtx;
 use crate::store::{self, HistoryEntry};
@@ -121,7 +121,7 @@ pub fn storage_stats(app: AppHandle) -> StorageStats {
 
 #[cfg(test)]
 mod tests {
-    use super::wav_to_mp3;
+    use super::{wav_to_mp3, wavio};
 
     #[test]
     fn mp3_transcode_produces_valid_output() {
@@ -133,7 +133,7 @@ mod tests {
         let x: Vec<f32> = (0..24000)
             .map(|i| (i as f32 * 2.0 * std::f32::consts::PI * 440.0 / 24000.0).sin() * 0.5)
             .collect();
-        voxwaver_core::wavio::write_wav(&wav, &x, 24000, true).unwrap();
+        wavio::write_wav(&wav, &x, 24000, true).unwrap();
         wav_to_mp3(&wav, &mp3).unwrap();
         let data = std::fs::read(&mp3).unwrap();
         // ~1s at 128 kbps CBR ≈ 16 KB; sanity-check size and a frame sync word

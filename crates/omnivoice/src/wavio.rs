@@ -1,4 +1,4 @@
-//! WAV I/O (hound), mirroring cosyvoice's helper.
+//! WAV I/O (hound).
 
 use anyhow::{Context, Result};
 

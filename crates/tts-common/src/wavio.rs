@@ -180,7 +180,7 @@ mod tests {
 
     #[test]
     fn wav_roundtrip() {
-        let dir = std::env::temp_dir().join("voxwaver-test");
+        let dir = std::env::temp_dir().join("tts-common-test");
         std::fs::create_dir_all(&dir).unwrap();
         let p = dir.join("rt.wav");
         let x: Vec<f32> = (0..256).map(|i| (i as f32 / 64.0).sin() * 0.5).collect();

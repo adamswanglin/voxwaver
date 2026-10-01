@@ -1,5 +1,7 @@
-//! Types shared by the TTS engines (voxwaver-core, omnivoice) and the app:
-//! cooperative cancellation, stage progress reporting, and the sink trait.
+//! Types shared by the TTS engines (omnivoice) and the app: cooperative
+//! cancellation, stage progress reporting, the sink trait, and WAV I/O.
+
+pub mod wavio;
 
 use serde::Serialize;
 use std::sync::atomic::{AtomicBool, Ordering};

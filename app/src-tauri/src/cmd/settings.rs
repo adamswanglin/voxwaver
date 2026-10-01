@@ -3,7 +3,6 @@
 use serde::Serialize;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
-use voxwaver_core::select_device;
 
 use crate::models::{self, ModelKind, REGISTRY};
 use crate::state::{AppCtx, AppState};
@@ -48,8 +47,8 @@ pub struct DeviceProbe {
 #[tauri::command]
 pub fn probe_devices() -> DeviceProbe {
     DeviceProbe {
-        metal: select_device("metal").is_ok(),
-        cuda: select_device("cuda").is_ok(),
+        metal: omnivoice::select_device("metal").is_ok(),
+        cuda: omnivoice::select_device("cuda").is_ok(),
     }
 }
 
@@ -177,13 +176,6 @@ pub fn delete_model(
             .unwrap_or(false);
         if pointed_at_dl {
             s.model_dirs.remove(&model);
-        }
-        // deleting the active model's only copy: fall back to s1-mini when
-        // it is still installed
-        if s.kind() == kind && s.model_dir_of(kind).is_none() && kind != ModelKind::S1Mini {
-            if s.model_dir_of(ModelKind::S1Mini).is_some() {
-                s.model = "s1-mini".into();
-            }
         }
     }
     if dl.exists() {

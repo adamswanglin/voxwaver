@@ -16,7 +16,7 @@ fancy-regex = "0.13"
 unicode-normalization = "0.1"
 tts-common = { path = "../tts-common" }
 
-# Same candle fork as voxwaver-core: Metal large-buffer pooling fix
+# Candle fork: Metal large-buffer pooling fix
 # (huggingface/candle#4012) + direct Metal conv1d kernel + multi-block argsort.
 candle-core = { git = "https://github.com/adamswanglin/candle.git", branch = "voxwaver" }
 candle-nn = { git = "https://github.com/adamswanglin/candle.git", branch = "voxwaver" }

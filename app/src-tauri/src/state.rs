@@ -5,14 +5,14 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, RwLock};
 use tts_common::CancelFlag;
 
-use crate::engine::AnyEngine;
+use crate::engine::Engine;
 use crate::models::{self, ModelKind};
 use crate::store::Settings;
 
 pub struct AppState {
     /// Lazily created once a valid model dir is configured; holds whichever
     /// engine the active model resolves to.
-    pub engine: Mutex<Option<AnyEngine>>,
+    pub engine: Mutex<Option<Engine>>,
     pub settings: RwLock<Settings>,
     /// Current generation (engine lock serializes anyway; this flag gives a
     /// clean "busy" error instead of queueing).

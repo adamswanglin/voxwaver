@@ -131,7 +131,7 @@ pub struct Engine {
 impl Drop for Engine {
     fn drop(&mut self) {
         // Hand idle pooled GPU buffers back to the OS before the weights
-        // go away (mirrors voxwaver-core's `unload`).
+        // go away (mirrors the upstream `unload`).
         let _ = self.device.clear_metal_pool();
     }
 }
@@ -216,7 +216,7 @@ impl Engine {
     /// Estimated durations above `cfg::CHUNK_THRESHOLD_FRAMES` are split into
     /// `cfg::CHUNK_FRAMES`-sized pieces on sentence boundaries, generated
     /// independently and stitched with a short cross-fade (mirrors the Python
-    /// pipeline's long-form chunking and voxwaver-core's sentence batching).
+    /// pipeline's long-form chunking and sentence batching).
     pub fn tts_with(
         &self,
         text: &str,

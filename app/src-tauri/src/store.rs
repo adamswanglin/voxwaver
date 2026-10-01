@@ -12,26 +12,15 @@ use std::path::Path;
 pub struct Settings {
     /// auto | cpu | metal | cuda
     pub device: String,
-    /// auto | bf16 | f16 | f32 (s1-mini only; OmniVoice always runs F32)
-    pub dtype: String,
-    /// Active engine: s1-mini | omnivoice (see `models::REGISTRY`).
+    /// Active engine (see `models::REGISTRY`).
     #[serde(default = "default_model")]
     pub model: String,
     /// Model directory per model id (imported or downloaded).
     #[serde(default)]
     pub model_dirs: BTreeMap<String, String>,
-    /// Keep codec.pth resident between runs (~1.5 GB extra memory).
-    pub keep_codec_loaded: bool,
     /// Interface language: en | zh | ja | de | fr | es | ko | ar | ru | nl | it | pl | pt.
     /// Also passed to OmniVoice as the `lang` tag.
     pub language: String,
-    /// Sampling params for s1-mini (CLI defaults).
-    #[serde(default = "default_temperature")]
-    pub temperature: f64,
-    #[serde(default = "default_top_p")]
-    pub top_p: f64,
-    #[serde(default = "default_repetition_penalty")]
-    pub repetition_penalty: f64,
     /// OmniVoice token sampling temperature (class_temperature);
     /// 0 = greedy decoding, matching the upstream CLI default.
     #[serde(default)]
@@ -47,14 +36,12 @@ pub struct Settings {
 pub struct EngineFingerprint {
     pub kind: ModelKind,
     pub device: String,
-    pub dtype: String,
     pub model_dir: Option<String>,
-    pub keep_codec_loaded: bool,
 }
 
 impl Settings {
     pub fn kind(&self) -> ModelKind {
-        crate::models::kind_from_id(&self.model).unwrap_or(ModelKind::S1Mini)
+        crate::models::kind_from_id(&self.model).unwrap_or(ModelKind::OmniVoice)
     }
     pub fn model_dir_of(&self, kind: ModelKind) -> Option<String> {
         self.model_dirs
@@ -65,9 +52,7 @@ impl Settings {
         EngineFingerprint {
             kind: self.kind(),
             device: self.device.clone(),
-            dtype: self.dtype.clone(),
             model_dir: self.model_dir_of(self.kind()),
-            keep_codec_loaded: self.keep_codec_loaded,
         }
     }
 }
@@ -76,14 +61,9 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             device: "auto".into(),
-            dtype: "auto".into(),
             model: default_model(),
             model_dirs: BTreeMap::new(),
-            keep_codec_loaded: true,
             language: "zh".into(),
-            temperature: 0.7,
-            top_p: 0.7,
-            repetition_penalty: 1.5,
             omni_temperature: 0.0,
             seed: rand_seed(),
         }
@@ -91,7 +71,7 @@ impl Default for Settings {
 }
 
 fn default_model() -> String {
-    "s1-mini".into()
+    "omnivoice".into()
 }
 
 fn rand_seed() -> u64 {
@@ -99,18 +79,6 @@ fn rand_seed() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_nanos() as u64)
         .unwrap_or(0)
-}
-
-fn default_temperature() -> f64 {
-    0.7
-}
-
-fn default_top_p() -> f64 {
-    0.7
-}
-
-fn default_repetition_penalty() -> f64 {
-    1.5
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -182,14 +150,10 @@ pub fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T> {
 
 pub fn load_settings(path: &Path) -> Settings {
     let mut s = read_json::<Settings>(path).unwrap_or_default();
-    // Migrate the legacy single-model `modelDir` field (pre multi-model
-    // builds) into `modelDirs["s1-mini"]`.
-    if s.model_dirs.is_empty() {
-        if let Ok(v) = read_json::<serde_json::Value>(path) {
-            if let Some(old) = v.get("modelDir").and_then(|x| x.as_str()) {
-                s.model_dirs.insert("s1-mini".into(), old.to_string());
-            }
-        }
+    // Settings from pre-OmniVoice builds may name a removed engine; fall
+    // back to the only one left.
+    if crate::models::kind_from_id(&s.model).is_none() {
+        s.model = default_model();
     }
     // Drop dirs referencing unknown model ids.
     s.model_dirs.retain(|k, _| crate::models::kind_from_id(k).is_some());

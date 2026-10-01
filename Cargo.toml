@@ -1,28 +1,6 @@
 [workspace]
-members = ["crates/voxwaver-core", "crates/omnivoice", "crates/tts-common", "app/src-tauri"]
+members = ["crates/omnivoice", "crates/tts-common", "app/src-tauri"]
 resolver = "2"
-
-[package]
-name = "voxwaver"
-version = "0.1.0"
-edition = "2021"
-description = "fishaudio/s1-mini TTS inference CLI in Rust with candle"
-license = "CC-BY-NC-SA-4.0"
-
-[dependencies]
-anyhow = "1"
-clap = { version = "4", features = ["derive"] }
-serde_json = "1"
-voxwaver-core = { path = "crates/voxwaver-core" }
-# tensor-name dump for the `keys` debug subcommand
-candle-core = { git = "https://github.com/adamswanglin/candle.git", branch = "voxwaver" }
-
-[features]
-default = []
-cuda = ["voxwaver-core/cuda"]
-cudnn = ["cuda", "voxwaver-core/cudnn"]
-metal = ["voxwaver-core/metal"]
-accelerate = ["voxwaver-core/accelerate"]
 
 [profile.release]
 lto = "thin"

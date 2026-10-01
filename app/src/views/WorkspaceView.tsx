@@ -34,8 +34,7 @@ export function WorkspaceView() {
   const modelStatuses = useSettings((s) => s.modelStatuses)
   const modelInstalled = modelStatuses.find((m) => m.active)?.installed
   const modelName =
-    modelStatuses.find((m) => m.active)?.displayName ?? 'S1 Mini'
-  const isOmni = modelStatuses.find((m) => m.active)?.model === 'omnivoice'
+    modelStatuses.find((m) => m.active)?.displayName ?? 'OmniVoice'
   // sampling params live in 设置-模型设置 now
   const settings = useSettings((s) => s.settings)
   const setView = useView((s) => s.setView)
@@ -70,10 +69,7 @@ export function WorkspaceView() {
     run({
       text,
       voiceId: voice?.id === 'default' ? null : (voice?.id ?? null),
-      instruct: isOmni && instruct.trim() ? instruct.trim() : null,
-      temperature: settings?.temperature ?? 0.7,
-      topP: settings?.topP ?? 0.7,
-      repetitionPenalty: settings?.repetitionPenalty ?? 1.5,
+      instruct: instruct.trim() ? instruct.trim() : null,
       seed: settings?.seed ?? 0,
     })
   }
@@ -199,24 +195,22 @@ export function WorkspaceView() {
         </div>
 
         {/* ---- 风格指令（OmniVoice） ---- */}
-        {isOmni && (
-          <div className="param-card">
-            <div className="param-card-title">风格指令（可选）</div>
-            <input
-              className="form-input"
-              style={{ width: '100%', fontSize: 13 }}
-              placeholder="例如：用愉快的语气说话"
-              value={instruct}
-              maxLength={200}
-              spellCheck={false}
-              disabled={running}
-              onChange={(e) => setInstruct(e.target.value)}
-            />
-            <div className="slider-hint" style={{ marginTop: 6 }}>
-              传给 OmniVoice 的 instruct 风格描述，留空则不使用。
-            </div>
+        <div className="param-card">
+          <div className="param-card-title">风格指令（可选）</div>
+          <input
+            className="form-input"
+            style={{ width: '100%', fontSize: 13 }}
+            placeholder="例如：用愉快的语气说话"
+            value={instruct}
+            maxLength={200}
+            spellCheck={false}
+            disabled={running}
+            onChange={(e) => setInstruct(e.target.value)}
+          />
+          <div className="slider-hint" style={{ marginTop: 6 }}>
+            传给 OmniVoice 的 instruct 风格描述，留空则不使用。
           </div>
-        )}
+        </div>
 
         {/* ---- 韵律（模型暂不支持，保留设计 UI） ---- */}
         <div className="param-card">

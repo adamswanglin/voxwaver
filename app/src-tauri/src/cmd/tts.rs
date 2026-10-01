@@ -6,11 +6,9 @@ use std::sync::atomic::Ordering;
 use std::sync::mpsc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager, State};
-use tts_common::{Progress, ProgressSink};
-use voxwaver_core::wavio;
+use tts_common::{Progress, ProgressSink, wavio};
 
-use crate::engine::{AnyEngine, GenJob, RefMat};
-use crate::models::ModelKind;
+use crate::engine::{Engine, GenJob, RefMat};
 use crate::state::{AppCtx, AppState};
 use crate::store::{self, GenParams, HistoryEntry};
 
@@ -18,58 +16,39 @@ use crate::store::{self, GenParams, HistoryEntry};
 #[serde(rename_all = "camelCase")]
 pub struct EngineStatus {
     pub ready: bool,
-    pub lm_loaded: bool,
-    pub codec_loaded: bool,
     pub model: String,
     pub model_dir: Option<String>,
     pub device: String,
-    pub dtype: String,
 }
 
 #[tauri::command]
 pub fn get_engine_status(state: State<'_, AppState>) -> EngineStatus {
     let settings = state.settings.read().unwrap();
     let eng = state.engine.lock().unwrap();
-    let loaded = eng.as_ref().is_some_and(|e| e.is_model_loaded());
     EngineStatus {
         ready: eng.is_some(),
-        lm_loaded: loaded,
-        codec_loaded: loaded,
         model: settings.model.clone(),
         model_dir: settings.model_dir_of(settings.kind()),
         device: settings.device.clone(),
-        dtype: settings.dtype.clone(),
     }
 }
 
 /// Load (or rebuild) the engine to match current settings. Cheap when the
-/// engine already exists with the same config. When the model kind or its
-/// config changed, the old engine is dropped first — both engines are
-/// GB-scale, so the replacement must never coexist with the old one.
+/// engine already exists with the same config. When the model or its config
+/// changed, the old engine is dropped first — the engine is GB-scale, so the
+/// replacement must never coexist with the old one.
 pub(crate) fn ensure_engine(state: &AppState, sink: &dyn ProgressSink) -> anyhow::Result<()> {
     let settings = state.settings.read().unwrap().clone();
     let mut eng = state.engine.lock().unwrap();
-    match eng.as_mut() {
-        // s1-mini stays resident and hot-reconfigures (lazy weight reload).
-        Some(AnyEngine::S1(se)) if settings.kind() == ModelKind::S1Mini => {
-            if let Ok(cfg) = crate::engine::s1_config(&settings) {
-                se.reconfigure(cfg);
-                return Ok(());
-            }
-            // invalid config (e.g. model removed): fall through to drop
-        }
-        // OmniVoice is eager-loaded; reuse only when still the active model
-        // on the same device.
-        Some(AnyEngine::Omni(r))
-            if settings.kind() == ModelKind::OmniVoice && r.device == settings.device =>
-        {
+    // OmniVoice is eager-loaded; reuse only when still on the same device.
+    if let Some(e) = eng.as_ref() {
+        if e.device == settings.device {
             return Ok(());
         }
-        _ => {}
     }
     // Drop the old engine (releasing its weights) before building the new one.
     *eng = None;
-    *eng = Some(AnyEngine::build(&settings, sink)?);
+    *eng = Some(Engine::build(&settings, sink)?);
     Ok(())
 }
 
@@ -81,9 +60,6 @@ pub struct GenerateReq {
     /// OmniVoice style instruction (e.g. "用愉快的语气").
     #[serde(default)]
     pub instruct: Option<String>,
-    pub temperature: f64,
-    pub top_p: f64,
-    pub repetition_penalty: f64,
     pub seed: u64,
 }
 
@@ -140,9 +116,11 @@ async fn run_generate(app: &AppHandle, req: GenerateReq) -> Result<HistoryEntry,
     let voice_id = req.voice_id.clone();
     let text = req.text.clone();
     let params = GenParams {
-        temperature: req.temperature,
-        top_p: req.top_p,
-        repetition_penalty: req.repetition_penalty,
+        // OmniVoice only samples with the class temperature; the other s1-era
+        // slots are kept in the persisted history schema for old entries.
+        temperature: 0.0,
+        top_p: 0.0,
+        repetition_penalty: 0.0,
         seed: req.seed,
     };
     let app_gen = app.clone();
@@ -153,18 +131,14 @@ async fn run_generate(app: &AppHandle, req: GenerateReq) -> Result<HistoryEntry,
         let sink = ChannelSink { tx: tx.clone() };
         ensure_engine(&state, &sink)?;
         let settings = state.settings.read().unwrap().clone();
-        let kind = settings.kind();
         let ref_mat = voice_id
             .as_deref()
             .filter(|id| !id.is_empty() && *id != "default")
-            .map(|id| load_or_encode_ref(&ctx, &state, kind, id, &sink))
+            .map(|id| load_or_encode_ref(&ctx, &state, id, &sink))
             .transpose()?;
         let job = GenJob {
             text: text.clone(),
             instruct: req.instruct.clone().filter(|s| !s.trim().is_empty()),
-            temperature: settings.temperature,
-            top_p: settings.top_p,
-            repetition_penalty: settings.repetition_penalty,
             omni_temperature: settings.omni_temperature,
             lang: settings.language.clone(),
             seed: params.seed,
@@ -245,18 +219,13 @@ pub fn cancel_generate(state: State<'_, AppState>) {
     state.gen_cancel.cancel();
 }
 
-/// Preload the LM (and codec when configured) so the first generation
-/// doesn't pay the load cost.
+/// Preload the engine so the first generation doesn't pay the load cost.
 #[tauri::command]
 pub async fn warmup_engine(app: AppHandle) -> Result<(), String> {
     tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
         let state: State<'_, AppState> = app.state();
         let sink = tts_common::NullSink;
         ensure_engine(&state, &sink)?;
-        let mut eng = state.engine.lock().unwrap();
-        if let Some(e) = eng.as_mut() {
-            e.warmup();
-        }
         Ok(())
     })
     .await
@@ -266,47 +235,37 @@ pub async fn warmup_engine(app: AppHandle) -> Result<(), String> {
 
 // ---- voice helpers (shared with voices.rs) ----
 
-/// Persisted next to the encoded codes in `<voice_dir>/ref.json` (s1-mini)
-/// or `ref.omni.json` (OmniVoice).
+/// Persisted next to the encoded codes in `<voice_dir>/ref.omni.json`.
 #[derive(serde::Serialize, serde::Deserialize)]
 pub(crate) struct RefFile {
     pub transcript: String,
     pub codes: Vec<Vec<u32>>,
 }
 
-/// Cache file name for a model kind's encoded reference codes.
-pub(crate) fn ref_cache_file(kind: ModelKind) -> &'static str {
-    match kind {
-        ModelKind::S1Mini => "ref.json",
-        ModelKind::OmniVoice => "ref.omni.json",
-    }
+/// Cache file name for the encoded reference codes.
+pub(crate) fn ref_cache_file() -> &'static str {
+    "ref.omni.json"
 }
 
-/// Load a voice's reference for `kind`; when the per-model cache is missing
-/// (e.g. a voice created under the other model), lazily encode the stored
-/// `ref.wav` through the resident engine and persist the cache.
+/// Load a voice's reference; when the cache is missing, lazily encode the
+/// stored `ref.wav` through the resident engine and persist the cache.
 pub(crate) fn load_or_encode_ref(
     ctx: &AppCtx,
     state: &AppState,
-    kind: ModelKind,
     voice_id: &str,
     sink: &dyn ProgressSink,
 ) -> anyhow::Result<RefMat> {
     let dir = ctx.dirs().voice_dir(voice_id);
-    let cache = dir.join(ref_cache_file(kind));
+    let cache = dir.join(ref_cache_file());
     if let Ok(rf) = store::read_json::<RefFile>(&cache) {
         return Ok(RefMat {
             transcript: rf.transcript,
             codes: rf.codes,
         });
     }
-    // Fall back for the transcript if only the other model's cache exists.
-    let transcript = store::read_json::<RefFile>(&dir.join("ref.json"))
-        .map(|rf| rf.transcript)
-        .or_else(|_| {
-            store::read_json::<RefFile>(&dir.join("ref.omni.json")).map(|rf| rf.transcript)
-        })
-        .unwrap_or_default();
+    // Legacy voices (pre-OmniVoice builds) kept the transcript in ref.json.
+    let transcript =
+        store::read_json::<RefFile>(&dir.join("ref.json")).map(|rf| rf.transcript).unwrap_or_default();
     let wav = dir.join("ref.wav");
     anyhow::ensure!(wav.is_file(), "voice {voice_id} has no reference sample");
     let codes = {

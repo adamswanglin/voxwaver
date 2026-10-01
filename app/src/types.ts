@@ -2,14 +2,9 @@ export type ViewName = 'workspace' | 'voices' | 'history'
 
 export interface Settings {
   device: string // auto | cpu | metal | cuda
-  dtype: string // auto | bf16 | f16 | f32 (s1-mini only; OmniVoice runs F32)
-  model: string // active engine: s1-mini | omnivoice
+  model: string // active engine
   modelDirs: Record<string, string> // model id -> directory
-  keepCodecLoaded: boolean
   language: string
-  temperature: number
-  topP: number
-  repetitionPenalty: number
   /** OmniVoice class temperature; 0 = greedy (upstream CLI default) */
   omniTemperature: number
   seed: number
@@ -64,12 +59,9 @@ export interface ModelStatus {
 
 export interface EngineStatus {
   ready: boolean
-  lmLoaded: boolean
-  codecLoaded: boolean
   model: string
   modelDir: string | null
   device: string
-  dtype: string
 }
 
 export interface DeviceProbe {
@@ -113,8 +105,5 @@ export interface GenerateReq {
   voiceId: string | null
   /** OmniVoice style instruction */
   instruct: string | null
-  temperature: number
-  topP: number
-  repetitionPenalty: number
   seed: number
 }

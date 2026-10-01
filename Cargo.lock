@@ -5345,6 +5345,8 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 name = "tts-common"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "hound",
  "serde",
 ]
 
@@ -5481,17 +5483,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
-name = "voxwaver"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "candle-core",
- "clap",
- "serde_json",
- "voxwaver-core",
-]
-
-[[package]]
 name = "voxwaver-app"
 version = "0.1.0"
 dependencies = [
@@ -5509,23 +5500,6 @@ dependencies = [
  "tokio",
  "tts-common",
  "uuid",
- "voxwaver-core",
-]
-
-[[package]]
-name = "voxwaver-core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base64 0.22.1",
- "candle-core",
- "candle-nn",
- "fancy-regex 0.13.0",
- "hound",
- "rand 0.8.8",
- "serde",
- "serde_json",
- "tts-common",
 ]
 
 [[package]]

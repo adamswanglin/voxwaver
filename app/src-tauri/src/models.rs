@@ -7,8 +7,6 @@ use std::path::Path;
 /// The engines the app can drive.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ModelKind {
-    /// fishaudio s1-mini via voxwaver-core (dual-AR LM + modded-DAC, 44.1 kHz).
-    S1Mini,
     /// k2-fsa OmniVoice via the omnivoice crate (Qwen3 unmasking + HiggsAudioV2, 24 kHz).
     OmniVoice,
 }
@@ -29,30 +27,7 @@ pub struct ModelSpec {
     pub size_hint: &'static str,
 }
 
-pub const REGISTRY: [ModelSpec; 2] = [
-    ModelSpec {
-        kind: ModelKind::S1Mini,
-        id: "s1-mini",
-        display_name: "Fish Audio S1 Mini",
-        required_files: &[
-            "model.pth",
-            "codec.pth",
-            "config.json",
-            "tokenizer.tiktoken",
-            "special_tokens.json",
-        ],
-        download_files: &[
-            "model.pth",
-            "codec.pth",
-            "config.json",
-            "tokenizer.tiktoken",
-            "special_tokens.json",
-        ],
-        hf_repo: "fishaudio/s1-mini",
-        hf_rev: "main",
-        ms_repo: Some("fishaudio/s1-mini"),
-        size_hint: "~3.6 GB",
-    },
+pub const REGISTRY: [ModelSpec; 1] = [
     ModelSpec {
         kind: ModelKind::OmniVoice,
         id: "omnivoice",
@@ -96,14 +71,6 @@ pub fn check_model_dir(kind: ModelKind, dir: &Path) -> Result<Vec<String>> {
         if !dir.join(f).is_file() {
             missing.push((*f).to_string());
         }
-    }
-    if missing.is_empty() && s.kind == ModelKind::S1Mini {
-        // config.json must at least parse
-        let _: serde_json::Value = serde_json::from_str(
-            &std::fs::read_to_string(dir.join("config.json"))
-                .map_err(|e| anyhow::anyhow!("read config.json: {e}"))?,
-        )
-        .map_err(|e| anyhow::anyhow!("parse config.json: {e}"))?;
     }
     Ok(missing)
 }
