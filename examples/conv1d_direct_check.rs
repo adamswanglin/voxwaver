@@ -157,6 +157,12 @@ fn main() -> anyhow::Result<()> {
     println!("\n[batched]");
     check_conv1d("batch=4",             &cpu, &mtl, 4, 32, 256, 64, 5, 1, 2, 1)?;
 
+    // 4b. multi-tile x batch>1: tiled im2col must scatter each batch slice
+    // into the (b, l_out, n) accumulator at the right offset.
+    println!("\n[multi-tile x batched]");
+    check_conv1d("batch=4 multi-tile",  &cpu, &mtl, 4, 32, 40_000, 32, 7, 1, 3, 1)?;
+    check_conv1d("batch=2 multi-tile pad/dil", &cpu, &mtl, 2, 8, 210_000, 16, 5, 1, 4, 2)?;
+
     // 5. Strided / narrow input views (real decoder pattern)
     println!("\n[strided input views (narrow)]");
     check_conv1d_strided("narrow offset=10",  &cpu, &mtl, 1, 64, 500, 10, 400, 32, 7, 1, 3, 1)?;

@@ -38,8 +38,9 @@ cargo build --release --features cuda,cudnn
 cargo build --release
 ```
 
-默认通过 path 依赖使用本地 candle checkout（`/Users/wanglin/app/projects/github/candle`），
-换机器请把 `Cargo.toml` 中改为 crates.io 版本 `candle-core = "0.11.0"`。
+candle 依赖指向 fork 分支 [adamswanglin/candle `voxwaver`](https://github.com/adamswanglin/candle/tree/voxwaver)
+（git 依赖，分支含：大 buffer 池精确分桶修复、直接式 Metal conv1d kernel、
+MLX 移植的多块 argsort 接线），无需本地 checkout。
 
 ## 模型准备
 
@@ -64,7 +65,7 @@ voxwaver generate --model-dir /path/to/s1-mini \
 # 常用参数
 #   --temperature 0.7 --top-p 0.7 --repetition-penalty 1.5  # 官方默认采样参数
 #   --seed N              # 固定采样种子
-#   --max-new-tokens N    # 最多生成帧数（每帧 ~46ms 音频）
+#   --max-new-tokens N    # 每个文本块最多生成帧数（每帧 ~46ms 音频，0 = 不限制）
 #   --device auto|cpu|cuda|metal --dtype auto|bf16|f16|f32
 #   --chunk-frames N      # codec 解码分块（0 = 整段一次）
 #   --pcm16               # 输出 16-bit PCM 而非 float32 wav
@@ -81,17 +82,44 @@ voxwaver keys /path/to/s1-mini/model.pth
 参考音频支持任意常见采样率的 WAV（内部 Kaiser 窗 sinc 重采样到 44.1 kHz，
 自动混为单声道）。
 
+## 桌面应用（VoxWeaver）
+
+`app/` 是基于 **Tauri v2 + React + Vite + TypeScript** 的桌面 GUI，
+推理引擎直接内嵌为库（`voxwaver-core`），无 sidecar 进程。
+
+```bash
+cd app
+pnpm install
+pnpm tauri dev      # 开发
+pnpm tauri build    # 打包 dmg / app（macOS 自动启用 Metal feature）
+```
+
+功能：
+
+- **工作台**：文本编辑（字数 / 时长估计、导入 .txt）、声音选择、采样参数
+  （temperature / top-p / 重复惩罚 / 种子，同种子完全可复现）、生成进度与中途取消
+- **声音库**：zero-shot 克隆向导（定义人物 → 上传 WAV 样本 → 转写确认与编码），
+  参考音频编码为 token 缓存后复用，生成时不再重复编码；卡片可直接试听
+- **历史记录**：本地持久化（JSON 元数据 + wav），批量导出 / 删除 / 在文件夹中显示
+- **播放器**：真实波形播放条，seek / 快进快退
+- **设置**：设备（auto/CPU/Metal/CUDA）与精度切换、模型管理
+  （HuggingFace / ModelScope 下载、导入本地目录、删除副本）
+
+桌面端数据（设置 / 声音 / 历史 / 音频 / 下载的模型）存放在系统应用数据目录：
+`~/Library/Application Support/com.voxwaver.app/`（macOS）。
+
 ## 结构
 
 | 文件 | 内容 |
 | --- | --- |
-| `src/tokenizer.rs` | tiktoken BPE（fish pattern）+ 特殊 token |
-| `src/prompt.rs` | interleave 提示模板 + clean_text（含参考音频内联 semantic token） |
-| `src/dual_ar.rs` | Dual-AR transformer + KV cache + 快速帧解码 |
-| `src/sampling.rs` | top-p + 窗口化 repetition penalty 采样（CPU 参考实现 + 全 GPU 链） |
-| `src/dac/` | codec（layers / transformer / rvq / 加载与编排） |
-| `src/wavio.rs` | WAV 读写 + 重采样 |
-| `src/config.rs` | config.json 与 codec 超参 |
+| `crates/voxwaver-core/src/engine.rs` | 推理引擎：模型常驻 / 惰性加载、进度回调、取消、参考音频编码 |
+| `crates/voxwaver-core/src/tokenizer.rs` | tiktoken BPE（fish pattern）+ 特殊 token |
+| `crates/voxwaver-core/src/prompt.rs` | interleave 提示模板 + clean_text（含参考音频内联 semantic token） |
+| `crates/voxwaver-core/src/dual_ar.rs` | Dual-AR transformer + KV cache + 快速帧解码 |
+| `crates/voxwaver-core/src/sampling.rs` | top-p + 窗口化 repetition penalty 采样（CPU 参考实现 + 全 GPU 链） |
+| `crates/voxwaver-core/src/dac/` | codec（layers / transformer / rvq / 加载与编排） |
+| `crates/voxwaver-core/src/wavio.rs` | WAV 读写 + 重采样 |
+| `crates/voxwaver-core/src/config.rs` | config.json 与 codec 超参 |
 | `scripts/dump_reference.py` | 用 fish-speech/PyTorch 生成参考输出做数值对拍 |
 
 ## 验证状态

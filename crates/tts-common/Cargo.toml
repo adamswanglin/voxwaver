@@ -1,0 +1,9 @@
+[package]
+name = "tts-common"
+version = "0.1.0"
+edition = "2021"
+description = "Shared cancellation flag and progress reporting types for the TTS engines"
+license = "CC-BY-NC-SA-4.0"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }

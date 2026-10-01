@@ -1,0 +1,33 @@
+[package]
+name = "omnivoice"
+version = "0.1.0"
+edition = "2021"
+description = "OmniVoice TTS inference engine (Qwen3 bidirectional generator with 32-step iterative unmasking + HiggsAudioV2 RVQ/DAC decoder) on candle"
+license = "Apache-2.0"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+hound = "3"
+rand = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+fancy-regex = "0.13"
+unicode-normalization = "0.1"
+tts-common = { path = "../tts-common" }
+
+# Same candle fork as voxwaver-core: Metal large-buffer pooling fix
+# (huggingface/candle#4012) + direct Metal conv1d kernel + multi-block argsort.
+candle-core = { git = "https://github.com/adamswanglin/candle.git", branch = "voxwaver" }
+candle-nn = { git = "https://github.com/adamswanglin/candle.git", branch = "voxwaver" }
+
+[features]
+default = []
+cuda = ["candle-core/cuda", "candle-nn/cuda"]
+cudnn = ["cuda", "candle-core/cudnn", "candle-nn/cudnn"]
+metal = ["candle-core/metal", "candle-nn/metal"]
+accelerate = ["candle-core/accelerate", "candle-nn/accelerate"]
+
+[[bin]]
+name = "omnivoice-cli"
+path = "src/bin/cli.rs"

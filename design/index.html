@@ -105,7 +105,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; letter-spaci
   border: 1px solid var(--border-color);
 }
 .storage-bar { flex: 1; height: 4px; background: var(--border-color); border-radius: 2px; overflow: hidden; }
-.storage-bar-fill { height: 100%; width: 42%; background: var(--seed-primary); border-radius: 2px; }
+.storage-bar-fill { height: 100%; width: 36%; background: var(--seed-primary); border-radius: 2px; }
 .user-row { display: flex; align-items: center; gap: 9px; padding: 8px 12px; }
 .user-avatar { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, var(--seed-primary), var(--seed-accent)); display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: 700; }
 .user-name { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
@@ -354,6 +354,26 @@ input, textarea, select { font-family: inherit; font-size: inherit; letter-spaci
 .table-action-btn { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--text-tertiary); transition: all .12s; }
 .table-action-btn:hover { background: rgba(27,97,201,0.06); color: var(--seed-primary); }
 
+/* ========== Settings Modal ========== */
+.settings-overlay { display: none; position: fixed; inset: 0; background: rgba(24,29,38,.45); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(6px); }
+.settings-overlay.show { display: flex; }
+.settings-modal {
+  background: var(--seed-surface); border-radius: var(--radius-lg); width: 640px; max-height: 80vh;
+  box-shadow: var(--shadow-lg); overflow: hidden; animation: modalIn .2s ease; border: 1px solid var(--border-color);
+  display: flex; flex-direction: column;
+}
+.settings-tabs { display: flex; border-bottom: 1px solid var(--border-color); padding: 0 24px; flex-shrink: 0; }
+.settings-tab {
+  padding: 14px 18px; font-size: 13px; font-weight: 500; color: var(--text-tertiary);
+  cursor: pointer; border-bottom: 2px solid transparent; transition: all .12s; letter-spacing: var(--letter-spacing-body);
+  background: none; border-top: none; border-left: none; border-right: none;
+}
+.settings-tab:hover { color: var(--seed-fg); }
+.settings-tab.active { color: var(--seed-primary); font-weight: 600; border-bottom-color: var(--seed-primary); }
+.settings-content { padding: 24px 28px; overflow-y: auto; flex: 1; }
+.settings-panel { display: none; }
+.settings-panel.active { display: block; }
+
 /* ========== Utilities ========== */
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
 ::-webkit-scrollbar { width: 7px; }
@@ -375,7 +395,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; letter-spaci
     <div class="titlebar-actions">
       <div class="search-pill" role="search" aria-label="全局搜索">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <span>搜索声音、模型…</span>
+        <span>搜索声音、配置…</span>
         <kbd>⌘K</kbd>
       </div>
     </div>
@@ -402,10 +422,6 @@ input, textarea, select { font-family: inherit; font-size: inherit; letter-spaci
           <span>声音库</span>
           <span class="nav-badge">12</span>
         </button>
-        <button class="nav-item" data-view="models" aria-label="模型管理">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-          <span>模型管理</span>
-        </button>
         <button class="nav-item" data-view="history" aria-label="历史记录">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           <span>历史记录</span>
@@ -415,12 +431,17 @@ input, textarea, select { font-family: inherit; font-size: inherit; letter-spaci
       <div class="sidebar-footer">
         <div class="storage-pill" aria-label="本地存储使用情况">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
-          <span>4.2 GB / 10 GB</span>
+          <span>3.6 GB / 10 GB</span>
           <div class="storage-bar"><div class="storage-bar-fill"></div></div>
         </div>
-        <div class="user-row">
-          <div class="user-avatar">L</div>
-          <span class="user-name">本地用户</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div class="user-row" style="flex:1;">
+            <div class="user-avatar">L</div>
+            <span class="user-name">本地用户</span>
+          </div>
+          <button class="nav-item" id="open-settings" aria-label="设置" style="padding:8px;border-radius:8px;margin-left:auto;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </button>
         </div>
       </div>
     </aside>
@@ -465,18 +486,17 @@ input, textarea, select { font-family: inherit; font-size: inherit; letter-spaci
               </div>
             </div>
 
-            <!-- Model Selection -->
-            <div class="param-card" data-component="model-selector">
+            <!-- Model Info (Fish Audio S1 Mini) -->
+            <div class="param-card" data-component="model-info">
               <div class="param-card-title">模型</div>
-              <div class="model-selector" role="combobox" aria-label="选择模型" tabindex="0">
-                <div class="model-icon" style="width:32px;height:32px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:8px;">
+              <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--border-color);background:var(--seed-bg);">
+                <div style="width:32px;height:32px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
                 </div>
-                <div class="voice-info">
-                  <div class="voice-name">VoxNet-ZH v2.1</div>
-                  <div class="voice-meta">1.2 GB · 中文特化 · 高保真</div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:13px;font-weight:600;letter-spacing:var(--letter-spacing-body);">Fish Audio S1 Mini</div>
+                  <div style="font-size:11px;color:var(--text-tertiary);margin-top:1px;">~3.6 GB · Dual-AR · 44.1 kHz</div>
                 </div>
-                <svg class="selector-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
               </div>
             </div>
 
@@ -510,24 +530,6 @@ input, textarea, select { font-family: inherit; font-size: inherit; letter-spaci
                   <div class="slider-fill" style="width:50%"></div>
                   <div class="slider-thumb" style="left:50%"></div>
                 </div>
-              </div>
-            </div>
-
-            <!-- Output Format -->
-            <div class="param-card" data-component="output-format">
-              <div class="param-card-title">输出设置</div>
-              <div style="display:flex;gap:8px;margin-bottom:10px;">
-                <select class="form-input form-select" style="flex:1;font-size:12px;padding:8px 10px;" aria-label="音频格式">
-                  <option>WAV (无损)</option>
-                  <option selected>MP3 320kbps</option>
-                  <option>OGG Vorbis</option>
-                  <option>FLAC</option>
-                </select>
-                <select class="form-input form-select" style="flex:1;font-size:12px;padding:8px 10px;" aria-label="采样率">
-                  <option>22050 Hz</option>
-                  <option selected>44100 Hz</option>
-                  <option>48000 Hz</option>
-                </select>
               </div>
             </div>
 
@@ -642,117 +644,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; letter-spaci
         </div>
       </section>
 
-      <!-- View 3: Models -->
-      <section class="view" id="view-models" data-component="models-view">
-        <div class="panel-header" style="margin-bottom:20px;">
-          <div>
-            <div class="panel-title">模型管理</div>
-            <div class="panel-subtitle">下载、切换和管理本地 TTS 模型</div>
-          </div>
-        </div>
-
-        <div class="models-layout">
-          <div class="models-sidebar">
-            <button class="model-cat active">推荐</button>
-            <button class="model-cat">已安装</button>
-            <button class="model-cat">中文特化</button>
-            <button class="model-cat">多语言</button>
-            <button class="model-cat">情感表达</button>
-            <button class="model-cat">轻量快速</button>
-            <button class="model-cat">高保真</button>
-          </div>
-
-          <div class="models-main">
-            <!-- Storage Overview -->
-            <div class="storage-overview" data-component="storage-overview">
-              <div class="storage-header">
-                <span class="storage-title">本地存储</span>
-                <span class="storage-value">已用 4.2 GB / 10 GB 可用</span>
-              </div>
-              <div class="storage-bar-lg">
-                <div class="storage-seg" style="width:28%;background:var(--seed-primary);"></div>
-                <div class="storage-seg" style="width:9%;background:var(--seed-accent);"></div>
-                <div class="storage-seg" style="width:5%;background:var(--success);"></div>
-              </div>
-              <div class="storage-legend">
-                <div class="legend-item"><div class="legend-dot" style="background:var(--seed-primary);"></div>VoxNet 系列 2.8 GB</div>
-                <div class="legend-item"><div class="legend-dot" style="background:var(--seed-accent);"></div>CloneEngine 0.9 GB</div>
-                <div class="legend-item"><div class="legend-dot" style="background:var(--success);"></div>其他 0.5 GB</div>
-              </div>
-            </div>
-
-            <!-- Model List -->
-            <div class="models-list" data-component="models-list">
-              <div class="model-row">
-                <div class="model-icon" style="background:linear-gradient(135deg,#667eea,#764ba2);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
-                <div class="model-info">
-                  <div class="model-name">VoxNet-ZH v2.1</div>
-                  <div class="model-meta"><span>中文特化</span><span>310M 参数</span><span>高保真</span></div>
-                </div>
-                <div class="model-status"><button class="status-btn installed">✓ 使用中</button></div>
-                <div class="model-size">1.2 GB</div>
-              </div>
-
-              <div class="model-row">
-                <div class="model-icon" style="background:linear-gradient(135deg,#f093fb,#f5576c);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
-                <div class="model-info">
-                  <div class="model-name">VoxNet-Multi v1.8</div>
-                  <div class="model-meta"><span>多语言</span><span>520M 参数</span><span>12 种语言</span></div>
-                </div>
-                <div class="model-status"><button class="status-btn installed">✓ 已安装</button></div>
-                <div class="model-size">1.6 GB</div>
-              </div>
-
-              <div class="model-row">
-                <div class="model-icon" style="background:linear-gradient(135deg,#4facfe,#00f2fe);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
-                <div class="model-info">
-                  <div class="model-name">CloneEngine-Pro v3.0</div>
-                  <div class="model-meta"><span>声音克隆</span><span>180M 参数</span><span>需配合 TTS 模型</span></div>
-                </div>
-                <div class="model-status">
-                  <button class="status-btn downloading">
-                    <svg class="progress-ring" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="var(--border-hover)" stroke-width="2"/><circle cx="8" cy="8" r="6" fill="none" stroke="var(--seed-primary)" stroke-width="2" stroke-dasharray="38" stroke-dashoffset="12" stroke-linecap="round" transform="rotate(-90 8 8)"/></svg>
-                    68% · 下载中
-                  </button>
-                </div>
-                <div class="model-size">900 MB</div>
-              </div>
-
-              <div class="model-row">
-                <div class="model-icon" style="background:linear-gradient(135deg,#a8edea,#fed6e3);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
-                <div class="model-info">
-                  <div class="model-name">VoxNet-Lite v2.0</div>
-                  <div class="model-meta"><span>轻量快速</span><span>85M 参数</span><span>低延迟</span></div>
-                </div>
-                <div class="model-status"><button class="status-btn download">↓ 下载</button></div>
-                <div class="model-size">340 MB</div>
-              </div>
-
-              <div class="model-row">
-                <div class="model-icon" style="background:linear-gradient(135deg,#ffecd2,#fcb69f);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
-                <div class="model-info">
-                  <div class="model-name">EmotiVoice v1.2</div>
-                  <div class="model-meta"><span>情感表达</span><span>420M 参数</span><span>7 种情绪</span></div>
-                </div>
-                <div class="model-status"><button class="status-btn update">↑ 有更新 v1.3</button></div>
-                <div class="model-size">1.1 GB</div>
-              </div>
-
-              <div class="model-row">
-                <div class="model-icon" style="background:linear-gradient(135deg,#89f7fe,#66a6ff);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
-                <div class="model-info">
-                  <div class="model-name">VoxNet-JP v1.5</div>
-                  <div class="model-meta"><span>日文特化</span><span>280M 参数</span><span>含关西弁</span></div>
-                </div>
-                <div class="model-status"><button class="status-btn download">↓ 下载</button></div>
-                <div class="model-size">980 MB</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- View 4: History -->
+      <!-- View 3: History -->
       <section class="view" id="view-history" data-component="history-view">
         <div class="history-header">
           <div>
@@ -784,7 +676,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; letter-spaci
             <div class="mini-waveform"><svg width="40" height="24" viewBox="0 0 40 24"><g fill="var(--seed-primary)" opacity=".6"><rect x="0" y="8" width="2" height="8" rx="1"/><rect x="4" y="5" width="2" height="14" rx="1"/><rect x="8" y="9" width="2" height="6" rx="1"/><rect x="12" y="3" width="2" height="18" rx="1"/><rect x="16" y="7" width="2" height="10" rx="1"/><rect x="20" y="4" width="2" height="16" rx="1"/><rect x="24" y="8" width="2" height="8" rx="1"/><rect x="28" y="6" width="2" height="12" rx="1"/><rect x="32" y="10" width="2" height="4" rx="1"/><rect x="36" y="7" width="2" height="10" rx="1"/></g></svg></div>
             <div class="text-preview">欢迎使用 VoxWeaver，一款本地优先的跨平台文字转语音工具…</div>
             <div class="table-voice">晓雨</div>
-            <div class="table-model">VoxNet-ZH</div>
+            <div class="table-model">S1 Mini</div>
             <div class="table-duration">1:12</div>
             <div class="table-size">2.4 MB</div>
             <div class="table-actions">
@@ -799,7 +691,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; letter-spaci
             <div class="mini-waveform"><svg width="40" height="24" viewBox="0 0 40 24"><g fill="var(--seed-accent)" opacity=".6"><rect x="0" y="6" width="2" height="12" rx="1"/><rect x="4" y="9" width="2" height="6" rx="1"/><rect x="8" y="4" width="2" height="16" rx="1"/><rect x="12" y="7" width="2" height="10" rx="1"/><rect x="16" y="10" width="2" height="4" rx="1"/><rect x="20" y="5" width="2" height="14" rx="1"/><rect x="24" y="8" width="2" height="8" rx="1"/><rect x="28" y="3" width="2" height="18" rx="1"/><rect x="32" y="7" width="2" height="10" rx="1"/><rect x="36" y="9" width="2" height="6" rx="1"/></g></svg></div>
             <div class="text-preview">第三章 人工智能的发展历程：从图灵测试到深度学习的突破…</div>
             <div class="table-voice">子轩</div>
-            <div class="table-model">VoxNet-ZH</div>
+            <div class="table-model">S1 Mini</div>
             <div class="table-duration">4:38</div>
             <div class="table-size">8.9 MB</div>
             <div class="table-actions">
@@ -814,7 +706,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; letter-spaci
             <div class="mini-waveform"><svg width="40" height="24" viewBox="0 0 40 24"><g fill="#059669" opacity=".6"><rect x="0" y="10" width="2" height="4" rx="1"/><rect x="4" y="7" width="2" height="10" rx="1"/><rect x="8" y="5" width="2" height="14" rx="1"/><rect x="12" y="8" width="2" height="8" rx="1"/><rect x="16" y="4" width="2" height="16" rx="1"/><rect x="20" y="9" width="2" height="6" rx="1"/><rect x="24" y="6" width="2" height="12" rx="1"/><rect x="28" y="8" width="2" height="8" rx="1"/><rect x="32" y="5" width="2" height="14" rx="1"/><rect x="36" y="10" width="2" height="4" rx="1"/></g></svg></div>
             <div class="text-preview">Hello everyone, welcome back to our weekly tech podcast. Today…</div>
             <div class="table-voice">Aria</div>
-            <div class="table-model">VoxNet-Multi</div>
+            <div class="table-model">S1 Mini</div>
             <div class="table-duration">2:55</div>
             <div class="table-size">5.6 MB</div>
             <div class="table-actions">
@@ -829,7 +721,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; letter-spaci
             <div class="mini-waveform"><svg width="40" height="24" viewBox="0 0 40 24"><g fill="#EC4899" opacity=".6"><rect x="0" y="9" width="2" height="6" rx="1"/><rect x="4" y="5" width="2" height="14" rx="1"/><rect x="8" y="7" width="2" height="10" rx="1"/><rect x="12" y="3" width="2" height="18" rx="1"/><rect x="16" y="6" width="2" height="12" rx="1"/><rect x="20" y="8" width="2" height="8" rx="1"/><rect x="24" y="4" width="2" height="16" rx="1"/><rect x="28" y="9" width="2" height="6" rx="1"/><rect x="32" y="6" width="2" height="12" rx="1"/><rect x="36" y="8" width="2" height="8" rx="1"/></g></svg></div>
             <div class="text-preview">大家好，欢迎来到我的频道！今天要跟大家分享一个超好用的工具…</div>
             <div class="table-voice">小美</div>
-            <div class="table-model">VoxNet-ZH</div>
+            <div class="table-model">S1 Mini</div>
             <div class="table-duration">0:45</div>
             <div class="table-size">1.5 MB</div>
             <div class="table-actions">
@@ -844,7 +736,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; letter-spaci
             <div class="mini-waveform"><svg width="40" height="24" viewBox="0 0 40 24"><g fill="#D97706" opacity=".6"><rect x="0" y="7" width="2" height="10" rx="1"/><rect x="4" y="4" width="2" height="16" rx="1"/><rect x="8" y="9" width="2" height="6" rx="1"/><rect x="12" y="6" width="2" height="12" rx="1"/><rect x="16" y="3" width="2" height="18" rx="1"/><rect x="20" y="7" width="2" height="10" rx="1"/><rect x="24" y="5" width="2" height="14" rx="1"/><rect x="28" y="8" width="2" height="8" rx="1"/><rect x="32" y="4" width="2" height="16" rx="1"/><rect x="36" y="7" width="2" height="10" rx="1"/></g></svg></div>
             <div class="text-preview">各位听众朋友大家好，欢迎收听本期的深度解读节目…</div>
             <div class="table-voice">王主播</div>
-            <div class="table-model">VoxNet-ZH</div>
+            <div class="table-model">S1 Mini</div>
             <div class="table-duration">8:22</div>
             <div class="table-size">16.1 MB</div>
             <div class="table-actions">
@@ -950,6 +842,144 @@ input, textarea, select { font-family: inherit; font-size: inherit; letter-spaci
   </div>
 </div>
 
+<!-- Settings Modal -->
+<div class="settings-overlay" id="settings-overlay" data-component="settings-modal">
+  <div class="settings-modal" role="dialog" aria-labelledby="settings-title">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 28px 0;">
+      <h2 style="font-size:18px;font-weight:600;letter-spacing:0.1px;" id="settings-title">设置</h2>
+      <button class="modal-close" id="close-settings" aria-label="关闭"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="settings-tabs">
+      <button class="settings-tab active" data-tab="basic">基本设置</button>
+      <button class="settings-tab" data-tab="model">模型设置</button>
+    </div>
+    <div class="settings-content">
+      <!-- 基本设置 -->
+      <div class="settings-panel active" id="panel-basic">
+        <div style="margin-bottom:20px;">
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;display:block;letter-spacing:var(--letter-spacing-caption);">界面语言</label>
+          <select class="form-input form-select" style="width:100%;font-size:13px;padding:10px 14px;" aria-label="界面语言">
+            <option selected>简体中文</option>
+            <option>English</option>
+            <option>日本語</option>
+          </select>
+        </div>
+        <div style="margin-bottom:20px;">
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;display:block;letter-spacing:var(--letter-spacing-caption);">TTS 合成语言</label>
+          <select class="form-input form-select" style="width:100%;font-size:13px;padding:10px 14px;" aria-label="合成语言">
+            <option selected>中文（普通话）</option>
+            <option>English</option>
+            <option>日本語</option>
+            <option>中文（粤语）</option>
+            <option>한국어</option>
+          </select>
+        </div>
+      </div>
+      <!-- 模型设置 -->
+      <div class="settings-panel" id="panel-model">
+        <!-- 模型下载 -->
+        <div style="margin-bottom:20px;">
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;display:block;letter-spacing:var(--letter-spacing-caption);">模型下载</label>
+          <div style="padding:16px;border-radius:12px;border:1px solid var(--border-color);background:var(--seed-bg);">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+              <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+              </div>
+              <div style="flex:1;">
+                <div style="font-size:14px;font-weight:600;">Fish Audio S1 Mini</div>
+                <div style="font-size:11px;color:var(--text-tertiary);margin-top:2px;">model.pth + codec.pth · ~3.6 GB</div>
+              </div>
+              <button class="status-btn installed" style="font-size:11px;" id="model-status-badge">✓ 已安装</button>
+            </div>
+
+            <!-- 已安装状态：显示模型文件夹 -->
+            <div id="model-installed-view">
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--seed-surface);border-radius:8px;border:1px solid var(--border-color);font-size:12px;color:var(--text-secondary);">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                <span style="flex:1;font-variant-numeric:tabular-nums;">/Users/wanglin/models/s1-mini</span>
+                <button style="font-size:11px;color:var(--danger);background:none;cursor:pointer;font-weight:500;padding:2px 6px;border-radius:4px;transition:background .12s;" onmouseover="this.style.background='rgba(220,38,38,0.06)'" onmouseout="this.style.background='none'">删除</button>
+              </div>
+            </div>
+
+            <!-- 未安装状态：安装选项（默认隐藏） -->
+            <div id="model-install-view" style="display:none;">
+              <div style="display:flex;flex-direction:column;gap:8px;">
+                <button id="btn-install-hf" style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border-color);background:var(--seed-surface);cursor:pointer;transition:all .12s;text-align:left;" onmouseover="this.style.borderColor='var(--seed-primary)';this.style.background='rgba(27,97,201,0.03)'" onmouseout="this.style.borderColor='var(--border-color)';this.style.background='var(--seed-surface)'">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--seed-primary)" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  <div style="flex:1;">
+                    <div style="font-size:13px;font-weight:600;color:var(--seed-fg);">从 HuggingFace 下载</div>
+                    <div style="font-size:11px;color:var(--text-tertiary);margin-top:1px;">fishaudio/s1-mini · 海外源</div>
+                  </div>
+                </button>
+                <button id="btn-install-ms" style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border-color);background:var(--seed-surface);cursor:pointer;transition:all .12s;text-align:left;" onmouseover="this.style.borderColor='var(--seed-primary)';this.style.background='rgba(27,97,201,0.03)'" onmouseout="this.style.borderColor='var(--border-color)';this.style.background='var(--seed-surface)'">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--seed-primary)" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  <div style="flex:1;">
+                    <div style="font-size:13px;font-weight:600;color:var(--seed-fg);">从魔搭 ModelScope 下载</div>
+                    <div style="font-size:11px;color:var(--text-tertiary);margin-top:1px;">fishaudio/s1-mini · 国内加速</div>
+                  </div>
+                </button>
+                <button id="btn-install-local" style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border-color);background:var(--seed-surface);cursor:pointer;transition:all .12s;text-align:left;" onmouseover="this.style.borderColor='var(--seed-primary)';this.style.background='rgba(27,97,201,0.03)'" onmouseout="this.style.borderColor='var(--border-color)';this.style.background='var(--seed-surface)'">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                  <div style="flex:1;">
+                    <div style="font-size:13px;font-weight:600;color:var(--seed-fg);">选择本地模型文件夹</div>
+                    <div style="font-size:11px;color:var(--text-tertiary);margin-top:1px;">需包含 model.pth 和 codec.pth</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Device -->
+        <div style="margin-bottom:18px;">
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;display:block;letter-spacing:var(--letter-spacing-caption);">推理设备</label>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <label style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-radius:10px;border:1.5px solid var(--border-color);cursor:pointer;transition:all .12s;background:var(--seed-bg);">
+              <input type="radio" name="device" value="cpu" style="accent-color:var(--seed-primary);">
+              <span style="font-size:13px;font-weight:600;">CPU</span>
+              <span style="font-size:11px;color:var(--text-tertiary);">纯 CPU 推理，兼容性最佳</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-radius:10px;border:1.5px solid var(--seed-primary);background:rgba(27,97,201,0.04);cursor:pointer;transition:all .12s;">
+              <input type="radio" name="device" value="metal" checked style="accent-color:var(--seed-primary);">
+              <span style="font-size:13px;font-weight:600;">Metal</span>
+              <span style="font-size:11px;color:var(--text-tertiary);">macOS GPU 加速</span>
+              <span style="font-size:10px;font-weight:700;color:var(--seed-primary);background:rgba(27,97,201,0.08);padding:2px 8px;border-radius:6px;margin-left:auto;">推荐</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-radius:10px;border:1.5px solid var(--border-color);cursor:pointer;transition:all .12s;background:var(--seed-bg);">
+              <input type="radio" name="device" value="cuda" style="accent-color:var(--seed-primary);">
+              <span style="font-size:13px;font-weight:600;">CUDA</span>
+              <span style="font-size:11px;color:var(--text-tertiary);">NVIDIA GPU 加速</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Precision -->
+        <div style="margin-bottom:18px;">
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;display:block;letter-spacing:var(--letter-spacing-caption);">计算精度</label>
+          <div style="display:flex;gap:8px;">
+            <label style="flex:1;display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1.5px solid var(--seed-primary);background:rgba(27,97,201,0.04);cursor:pointer;transition:all .12s;">
+              <input type="radio" name="precision" value="bf16" checked style="accent-color:var(--seed-primary);">
+              <div>
+                <span style="font-size:13px;font-weight:600;">BF16</span>
+                <span style="font-size:11px;color:var(--text-tertiary);margin-left:4px;">低精度</span>
+              </div>
+              <span style="font-size:11px;color:var(--seed-primary);font-weight:600;margin-left:auto;">~3 GB</span>
+            </label>
+            <label style="flex:1;display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border-color);background:var(--seed-bg);cursor:pointer;transition:all .12s;">
+              <input type="radio" name="precision" value="f32" style="accent-color:var(--seed-primary);">
+              <div>
+                <span style="font-size:13px;font-weight:600;">F32</span>
+                <span style="font-size:11px;color:var(--text-tertiary);margin-left:4px;">高精度</span>
+              </div>
+              <span style="font-size:11px;color:var(--text-tertiary);font-weight:600;margin-left:auto;">~6 GB</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 // Navigation
 document.querySelectorAll('.nav-item[data-view]').forEach(btn => {
@@ -1001,12 +1031,72 @@ function updateBatchBar() {
 }
 updateBatchBar();
 
-// Model categories
-document.querySelectorAll('.model-cat').forEach(cat => {
-  cat.addEventListener('click', () => {
-    document.querySelectorAll('.model-cat').forEach(c => c.classList.remove('active'));
-    cat.classList.add('active');
+// Model categories (removed — models moved to settings)
+
+// Settings Modal
+const settingsOverlay = document.getElementById('settings-overlay');
+document.getElementById('open-settings')?.addEventListener('click', () => settingsOverlay.classList.add('show'));
+document.getElementById('close-settings')?.addEventListener('click', () => settingsOverlay.classList.remove('show'));
+settingsOverlay?.addEventListener('click', e => { if (e.target === settingsOverlay) settingsOverlay.classList.remove('show'); });
+
+// Settings tabs
+document.querySelectorAll('.settings-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
+    const panel = document.getElementById('panel-' + tab.dataset.tab);
+    if (panel) panel.classList.add('active');
   });
+});
+
+// Radio group visual feedback (device / precision / download-source)
+document.querySelectorAll('#settings-overlay input[type="radio"]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    const name = radio.name;
+    document.querySelectorAll(`#settings-overlay input[type="radio"][name="${name}"]`).forEach(r => {
+      const label = r.closest('label');
+      if (!label) return;
+      if (r.checked) {
+        label.style.borderColor = 'var(--seed-primary)';
+        label.style.background = 'rgba(27,97,201,0.04)';
+      } else {
+        label.style.borderColor = 'var(--border-color)';
+        label.style.background = name === 'download-source' || name === 'precision' ? 'var(--seed-surface)' : 'var(--seed-bg)';
+      }
+    });
+  });
+});
+
+// Model install/uninstall toggle
+const modelInstalledView = document.getElementById('model-installed-view');
+const modelInstallView = document.getElementById('model-install-view');
+const modelStatusBadge = document.getElementById('model-status-badge');
+let modelInstalled = true;
+
+function setModelInstalled(installed) {
+  modelInstalled = installed;
+  if (installed) {
+    modelInstalledView.style.display = 'block';
+    modelInstallView.style.display = 'none';
+    modelStatusBadge.textContent = '✓ 已安装';
+    modelStatusBadge.className = 'status-btn installed';
+    modelStatusBadge.style.fontSize = '11px';
+  } else {
+    modelInstalledView.style.display = 'none';
+    modelInstallView.style.display = 'block';
+    modelStatusBadge.textContent = '↓ 未安装';
+    modelStatusBadge.className = 'status-btn download';
+    modelStatusBadge.style.fontSize = '11px';
+  }
+}
+
+// Delete button -> switch to not-installed
+modelInstalledView?.querySelector('button')?.addEventListener('click', () => setModelInstalled(false));
+
+// Install buttons -> switch to installed
+['btn-install-hf', 'btn-install-ms', 'btn-install-local'].forEach(id => {
+  document.getElementById(id)?.addEventListener('click', () => setModelInstalled(true));
 });
 
 // History filters
@@ -1020,7 +1110,7 @@ document.querySelectorAll('.history-filter-btn').forEach(btn => {
 // Keyboard shortcut hint
 document.addEventListener('keydown', e => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); }
-  if (e.key === 'Escape') { cloneModal?.classList.remove('show'); }
+  if (e.key === 'Escape') { cloneModal?.classList.remove('show'); settingsOverlay?.classList.remove('show'); }
 });
 </script>
 </body>
