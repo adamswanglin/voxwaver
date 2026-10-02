@@ -44,7 +44,7 @@ jobs:
           - platform: macos
             os: macos-latest
           - platform: windows
-            os: windows-latest
+            os: windows-2022
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout voxwaver
