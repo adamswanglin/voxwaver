@@ -4,6 +4,7 @@ use serde::Serialize;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
 
+use crate::i18n;
 use crate::models::{self, ModelKind, REGISTRY};
 use crate::state::{AppCtx, AppState};
 use crate::store::{self, Settings};
@@ -30,6 +31,7 @@ pub fn set_settings(
         *guard = settings.clone();
         changed
     };
+    i18n::set_ui_lang(&settings.language);
     if needs_reload {
         // either engine kind may be affected: drop and rebuild on demand
         *state.engine.lock().unwrap() = None;
@@ -147,7 +149,7 @@ pub async fn import_local_model(
     let dir = path.into_path().map_err(|e| e.to_string())?;
     let missing = models::check_model_dir(kind, &dir).map_err(|e| e.to_string())?;
     if !missing.is_empty() {
-        return Err(format!("所选目录缺少文件: {}", missing.join(", ")));
+        return Err(rust_i18n::t!("missingFiles", files = missing.join(", ")).to_string());
     }
     let path_str = dir.to_string_lossy().into_owned();
     state.settings.write().unwrap().model_dirs.insert(model.clone(), path_str.clone());
@@ -157,8 +159,8 @@ pub async fn import_local_model(
     Ok(Some(path_str))
 }
 
-/// Remove the downloaded model copy from app data (imported folders are only
-/// de-referenced).
+/// Remove the model copy from app data and drop the settings reference.
+/// Imported folders are only de-referenced — their files are never touched.
 #[tauri::command]
 pub fn delete_model(
     app: AppHandle,
@@ -168,19 +170,12 @@ pub fn delete_model(
     let ctx = app.state::<AppCtx>();
     let kind = models::kind_from_id(&model).ok_or_else(|| format!("unknown model {model:?}"))?;
     let dl = ctx.dirs().model_download_dir(kind);
-    {
-        let mut s = state.settings.write().unwrap();
-        let pointed_at_dl = s
-            .model_dir_of(kind)
-            .map(|p| PathBuf::from(p) == dl)
-            .unwrap_or(false);
-        if pointed_at_dl {
-            s.model_dirs.remove(&model);
-        }
-    }
+    // Only the app-data download copy is physically removed.
     if dl.exists() {
         std::fs::remove_dir_all(&dl).map_err(|e| e.to_string())?;
     }
+    // De-reference the model in any case (downloaded or imported).
+    state.settings.write().unwrap().model_dirs.remove(&model);
     let settings = state.settings.read().unwrap().clone();
     set_settings(app, state, settings)?;
     Ok(())

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { apiStorageStats } from '../../api'
 import { formatBytes } from '../../lib/format'
 import { useHistory } from '../../stores/history'
@@ -8,12 +9,13 @@ import { useVoices } from '../../stores/voices'
 import { IconClock, IconGear, IconMic, IconWorkspace, Logo } from '../Icons'
 
 const NAV = [
-  { view: 'workspace', label: '主工作台', Icon: IconWorkspace },
-  { view: 'voices', label: '声音库', Icon: IconMic },
-  { view: 'history', label: '历史记录', Icon: IconClock },
+  { view: 'workspace', labelKey: 'sidebar.workspace', Icon: IconWorkspace },
+  { view: 'voices', labelKey: 'sidebar.voices', Icon: IconMic },
+  { view: 'history', labelKey: 'sidebar.history', Icon: IconClock },
 ] as const
 
 export function Sidebar() {
+  const { t } = useTranslation()
   const view = useView((s) => s.view)
   const setView = useView((s) => s.setView)
   const setSettingsOpen = useView((s) => s.setSettingsOpen)
@@ -41,8 +43,8 @@ export function Sidebar() {
         <h1>VoxWeaver</h1>
       </div>
 
-      <nav className="sidebar-nav" aria-label="主导航">
-        {NAV.map(({ view: v, label, Icon }) => (
+      <nav className="sidebar-nav" aria-label={t('sidebar.mainNav')}>
+        {NAV.map(({ view: v, labelKey, Icon }) => (
           <button
             key={v}
             className={`nav-item ${view === v ? 'active' : ''}`}
@@ -50,7 +52,7 @@ export function Sidebar() {
             aria-current={view === v ? 'page' : undefined}
           >
             <Icon />
-            <span>{label}</span>
+            <span>{t(labelKey)}</span>
             {v === 'voices' && voices.length > 1 && (
               <span className="nav-badge">{voices.length}</span>
             )}
@@ -65,7 +67,7 @@ export function Sidebar() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <button
             className="nav-item"
-            aria-label="设置"
+            aria-label={t('sidebar.settings')}
             style={{ padding: 8, borderRadius: 8, width: 'auto', flexShrink: 0 }}
             onClick={() => setSettingsOpen(true)}
           >
@@ -73,7 +75,7 @@ export function Sidebar() {
           </button>
           <div
             className="storage-pill"
-            aria-label="本地存储使用情况"
+            aria-label={t('sidebar.storage')}
             style={{ minWidth: 0, fontSize: 11, padding: '5px 8px', gap: 5, margin: 0, flex: 1 }}
           >
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>

@@ -1,0 +1,14 @@
+{
+  "genBusy": "Una generazione è già in corso",
+  "emptyText": "Il testo non deve essere vuoto",
+  "missingFiles": "File mancanti nella cartella selezionata: %{files}",
+  "dlBusy": "Un download è già in corso",
+  "msMirror": "%{model} non ha un mirror ModelScope; usa la fonte HuggingFace",
+  "dlFileFail": "Download di %{file} non riuscito: HTTP %{status}",
+  "audioMissing": "File audio non trovato",
+  "nameEmpty": "Il nome della voce non deve essere vuoto",
+  "transcriptEmpty": "Fornisci la trascrizione del campione",
+  "sampleMissing": "File campione non trovato",
+  "voiceNotFound": "Voce non trovata",
+  "emptyRecording": "I dati della registrazione sono vuoti"
+}

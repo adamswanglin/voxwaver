@@ -14,6 +14,17 @@ pub fn list_history(app: AppHandle) -> Vec<HistoryEntry> {
     store::load_history_in(&ctx.dirs().history_dir(), &ctx.dirs().root)
 }
 
+/// Grep the raw JSON text of each history entry for `query`
+/// (case-insensitive substring); empty query = full list.
+#[tauri::command]
+pub fn search_history(app: AppHandle, query: String) -> Vec<HistoryEntry> {
+    if query.trim().is_empty() {
+        return list_history(app);
+    }
+    let ctx = app.state::<AppCtx>();
+    store::search_history_in(&ctx.dirs().history_dir(), &ctx.dirs().root, query.trim())
+}
+
 #[tauri::command]
 pub fn delete_history(app: AppHandle, ids: Vec<String>) -> Result<(), String> {
     let ctx = app.state::<AppCtx>();
@@ -84,7 +95,7 @@ pub fn reveal_audio(app: AppHandle, id: String) -> Result<(), String> {
     let ctx = app.state::<AppCtx>();
     let path = ctx.dirs().audio_path(&id);
     if !path.is_file() {
-        return Err("音频文件不存在".into());
+        return Err(rust_i18n::t!("audioMissing").into());
     }
     app.opener()
         .reveal_item_in_dir(path.to_string_lossy().as_ref())

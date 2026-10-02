@@ -1,0 +1,14 @@
+{
+  "genBusy": "Es läuft bereits eine Generierung",
+  "emptyText": "Der Text darf nicht leer sein",
+  "missingFiles": "Im ausgewählten Ordner fehlen Dateien: %{files}",
+  "dlBusy": "Es läuft bereits ein Download",
+  "msMirror": "%{model} hat kein ModelScope-Spiegel; bitte die HuggingFace-Quelle verwenden",
+  "dlFileFail": "Download von %{file} fehlgeschlagen: HTTP %{status}",
+  "audioMissing": "Audiodatei nicht gefunden",
+  "nameEmpty": "Der Stimmenname darf nicht leer sein",
+  "transcriptEmpty": "Bitte das Transkript der Probe angeben",
+  "sampleMissing": "Probendatei nicht gefunden",
+  "voiceNotFound": "Stimme nicht gefunden",
+  "emptyRecording": "Aufnahmedaten sind leer"
+}

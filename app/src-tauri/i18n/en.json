@@ -1,0 +1,14 @@
+{
+  "genBusy": "A generation is already in progress",
+  "emptyText": "Text must not be empty",
+  "missingFiles": "The selected folder is missing files: %{files}",
+  "dlBusy": "A download is already in progress",
+  "msMirror": "%{model} has no ModelScope mirror; please use the HuggingFace source",
+  "dlFileFail": "Downloading %{file} failed: HTTP %{status}",
+  "audioMissing": "Audio file not found",
+  "nameEmpty": "Voice name must not be empty",
+  "transcriptEmpty": "Please provide the transcript of the sample",
+  "sampleMissing": "Sample file not found",
+  "voiceNotFound": "Voice not found",
+  "emptyRecording": "Recording data is empty"
+}

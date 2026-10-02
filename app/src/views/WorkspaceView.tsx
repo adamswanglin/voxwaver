@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from '../stores/toast'
 import {
   IconChevron,
@@ -7,55 +8,78 @@ import {
 } from '../components/Icons'
 import { Slider } from '../components/common/Slider'
 import { VoiceAvatar } from '../components/common/VoiceAvatar'
+import { LangCombobox } from '../components/common/LangCombobox'
 import { useGeneration } from '../stores/generation'
 import { useSettings } from '../stores/settings'
 import { useView } from '../stores/view'
 import { useVoices } from '../stores/voices'
 import type { GenOverrides, VoiceView } from '../types'
 
-/** Voice Design instruct categories (same attribute set as the upstream
- * docs; the model auto-normalises Chinese/English/mixed strings). */
-const DESIGN_CATEGORIES: { key: string; label: string; options: string[] }[] = [
-  { key: 'gender', label: '性别', options: ['男', '女'] },
-  { key: 'age', label: '年龄', options: ['儿童', '少年', '青年', '中年', '老年'] },
+/** "No constraint" sentinel for the design dropdowns (session state only). */
+const ANY = '__any__'
+
+/** Voice Design instruct categories. `id` is the stable i18n key;
+ * `value` is the canonical model-facing string (the model normalises
+ * Chinese/English/mixed — keep it unchanged so prompts stay identical). */
+const DESIGN_CATEGORIES: { key: string; options: { id: string; value: string }[] }[] = [
+  {
+    key: 'gender',
+    options: [
+      { id: 'male', value: '男' },
+      { id: 'female', value: '女' },
+    ],
+  },
+  {
+    key: 'age',
+    options: [
+      { id: 'child', value: '儿童' },
+      { id: 'teen', value: '少年' },
+      { id: 'young', value: '青年' },
+      { id: 'middle', value: '中年' },
+      { id: 'senior', value: '老年' },
+    ],
+  },
   {
     key: 'pitch',
-    label: '音调',
-    options: ['极低音调', '低音调', '中音调', '高音调', '极高音调'],
+    options: [
+      { id: 'veryLow', value: '极低音调' },
+      { id: 'low', value: '低音调' },
+      { id: 'mid', value: '中音调' },
+      { id: 'high', value: '高音调' },
+      { id: 'veryHigh', value: '极高音调' },
+    ],
   },
-  { key: 'style', label: '风格', options: ['耳语'] },
+  { key: 'style', options: [{ id: 'whisper', value: '耳语' }] },
   {
     key: 'accent',
-    label: '英语口音',
     options: [
-      'american accent',
-      'british accent',
-      'australian accent',
-      'canadian accent',
-      'indian accent',
-      'chinese accent',
-      'korean accent',
-      'japanese accent',
-      'portuguese accent',
-      'russian accent',
+      { id: 'american', value: 'american accent' },
+      { id: 'british', value: 'british accent' },
+      { id: 'australian', value: 'australian accent' },
+      { id: 'canadian', value: 'canadian accent' },
+      { id: 'indian', value: 'indian accent' },
+      { id: 'chinese', value: 'chinese accent' },
+      { id: 'korean', value: 'korean accent' },
+      { id: 'japanese', value: 'japanese accent' },
+      { id: 'portuguese', value: 'portuguese accent' },
+      { id: 'russian', value: 'russian accent' },
     ],
   },
   {
     key: 'dialect',
-    label: '方言',
     options: [
-      '河南话',
-      '陕西话',
-      '四川话',
-      '贵州话',
-      '云南话',
-      '桂林话',
-      '济南话',
-      '石家庄话',
-      '甘肃话',
-      '宁夏话',
-      '青岛话',
-      '东北话',
+      { id: 'henan', value: '河南话' },
+      { id: 'shaanxi', value: '陕西话' },
+      { id: 'sichuan', value: '四川话' },
+      { id: 'guizhou', value: '贵州话' },
+      { id: 'yunnan', value: '云南话' },
+      { id: 'guilin', value: '桂林话' },
+      { id: 'jinan', value: '济南话' },
+      { id: 'shijiazhuang', value: '石家庄话' },
+      { id: 'gansu', value: '甘肃话' },
+      { id: 'ningxia', value: '宁夏话' },
+      { id: 'qingdao', value: '青岛话' },
+      { id: 'dongbei', value: '东北话' },
     ],
   },
 ]
@@ -114,6 +138,7 @@ function ToggleRow({
 }
 
 export function WorkspaceView() {
+  const { t } = useTranslation()
   const [text, setText] = useState('')
   const [advOpen, setAdvOpen] = useState(false)
   const [adv, setAdv] = useState(ADV_DEFAULTS)
@@ -140,10 +165,11 @@ export function WorkspaceView() {
     modelStatuses.find((m) => m.active)?.displayName ?? 'OmniVoice'
   // sampling params live in 设置-模型设置 now
   const settings = useSettings((s) => s.settings)
+  const saveSettings = useSettings((s) => s.save)
   const setView = useView((s) => s.setView)
   const setSettingsOpen = useView((s) => s.setSettingsOpen)
 
-  const voice = voices.find((v) => v.id === currentId) ?? voices[0]
+  const voice = voices.find((v) => v.id === currentId)
   const charCount = text.trim().length
   // 中文 TTS 经验值 ~4.5 字/秒；speed > 1 产出更短的音频；固定时长优先
   const estSeconds = adv.duration > 0
@@ -162,16 +188,19 @@ export function WorkspaceView() {
 
   const onGenerate = () => {
     if (!modelInstalled) {
-      toast.info('请先安装模型')
+      toast.info(t('toasts.installModelFirst'))
       setSettingsOpen(true)
       return
     }
     if (!charCount) {
-      toast.info('请输入文本')
+      toast.info(t('toasts.enterText'))
       return
     }
     setDropdownOpen(false)
-    const attrs = DESIGN_CATEGORIES.map((c) => design[c.key]).filter((v) => v && v !== '不限')
+    const attrs = DESIGN_CATEGORIES.map((c) => {
+      const o = c.options.find((o) => o.id === design[c.key])
+      return o?.value
+    }).filter(Boolean) as string[]
     // 0 / false 等“默认值”字段直接传引擎默认，避免无意义覆盖
     const overrides: GenOverrides = {
       speed: adv.speed,
@@ -191,7 +220,7 @@ export function WorkspaceView() {
     }
     run({
       text,
-      voiceId: voice?.id === 'default' ? null : (voice?.id ?? null),
+      voiceId: voice?.id ?? null,
       instruct: attrs.length ? attrs.join('，') : null,
       seed: settings?.seed ?? 0,
       overrides,
@@ -203,17 +232,15 @@ export function WorkspaceView() {
       <div className="text-input-panel">
         <div className="panel-header">
           <div>
-            <h2 className="panel-title">主工作台</h2>
-            <p className="panel-subtitle">
-              {modelName} · 输入文本，选择声音，即刻生成语音
-            </p>
+            <h2 className="panel-title">{t('workspace.title')}</h2>
+            <p className="panel-subtitle">{t('workspace.subtitle', { model: modelName })}</p>
           </div>
         </div>
         <div className="text-editor-card">
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="在此输入要转换为语音的文本…&#10;&#10;支持中英混排；长文本会自动分块生成。"
+            placeholder={t('workspace.placeholder')}
             spellCheck={false}
             disabled={running}
           />
@@ -228,7 +255,7 @@ export function WorkspaceView() {
                     key={s.key}
                     className="gen-progress-seg"
                     style={{ background: `${s.color}26` }}
-                    title={s.label}
+                    title={t(s.labelKey)}
                   >
                     <div
                       className="gen-progress-seg-fill"
@@ -239,18 +266,20 @@ export function WorkspaceView() {
               </div>
               <div className="gen-overlay-sub">{subText}</div>
               <button className="gen-cancel-btn" disabled={cancelling} onClick={cancel}>
-                {cancelling ? '正在取消…' : '取消生成'}
+                {cancelling ? t('workspace.cancelling') : t('workspace.cancelGen')}
               </button>
             </div>
           )}
           <div className="editor-footer">
             <span className="char-count">
-              {charCount} 字{charCount > 0 && ` · 预计 ${estSeconds}s 音频`}
+              {charCount > 0
+                ? `${t('workspace.charCount', { n: charCount })} · ${t('workspace.estAudio', { sec: estSeconds })}`
+                : t('workspace.charCount', { n: charCount })}
             </span>
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="upload-btn" disabled={running} onClick={() => fileInput.current?.click()}>
                 <IconUpload />
-                导入 .txt
+                {t('workspace.importTxt')}
               </button>
               <input
                 ref={fileInput}
@@ -270,19 +299,24 @@ export function WorkspaceView() {
       <div className="params-panel">
         {/* ---- 声音选择 ---- */}
         <div className="param-card" style={{ position: 'relative' }}>
-          <div className="param-card-title">声音</div>
+          <div className="param-card-title">{t('workspace.voice')}</div>
           <button
             className="voice-selector"
             disabled={running}
             onClick={() => setDropdownOpen((v) => !v)}
           >
             <span className="voice-avatar">
-              <VoiceAvatar name={voice?.name ?? '默认音色'} icon={voice?.icon ?? null} size={32} />
+              <VoiceAvatar name={voice?.name ?? t('voices.none')} icon={voice?.icon ?? null} size={32} />
             </span>
             <span className="voice-info">
-              <span className="voice-name">{voice?.name ?? '默认音色'}</span>
+              <span
+                className="voice-name"
+                style={voice ? undefined : { color: 'var(--text-tertiary)' }}
+              >
+                {voice?.name ?? t('voices.none')}
+              </span>
               <span className="voice-meta" style={{ display: 'block' }}>
-                {voice ? `${voice.gender} · ${voice.language}` : ''}
+                {voice && (voice.isClone ? t('voices.cloneTag') : t('voices.preset'))}
               </span>
             </span>
             <IconChevron className={`selector-arrow ${dropdownOpen ? 'open' : ''}`} />
@@ -293,9 +327,10 @@ export function WorkspaceView() {
                 <VoiceOption
                   key={v.id}
                   v={v}
-                  selected={v.id === voice?.id}
+                  selected={v.id === currentId}
                   onPick={() => {
-                    setCurrent(v.id)
+                    // clicking the selected voice again clears the selection
+                    setCurrent(v.id === currentId ? null : v.id)
                     setDropdownOpen(false)
                   }}
                 />
@@ -309,7 +344,7 @@ export function WorkspaceView() {
               >
                 <span className="voice-info">
                   <span className="voice-name" style={{ color: 'var(--seed-primary)' }}>
-                    管理声音库 →
+                    {t('workspace.manageVoices')}
                   </span>
                 </span>
               </button>
@@ -319,24 +354,24 @@ export function WorkspaceView() {
 
         {/* ---- 声音设计（instruct 说话人属性） ---- */}
         <div className="param-card">
-          <div className="param-card-title">声音设计（可选）</div>
+          <div className="param-card-title">{t('workspace.designTitle')}</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {DESIGN_CATEGORIES.map((c) => (
               <label key={c.key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{c.label}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{t(`design.${c.key}`)}</span>
                 <select
                   className="form-input form-select"
                   style={{ width: '100%', fontSize: 12, padding: '8px 10px' }}
-                  aria-label={c.label}
-                  value={design[c.key] ?? '不限'}
+                  aria-label={t(`design.${c.key}`)}
+                  value={design[c.key] ?? ANY}
                   disabled={running}
                   onChange={(e) =>
                     setDesign((d) => ({ ...d, [c.key]: e.target.value }))
                   }
                 >
-                  {['不限', ...c.options].map((o) => (
-                    <option key={o} value={o}>
-                      {o}
+                  {[ANY, ...c.options.map((o) => o.id)].map((id) => (
+                    <option key={id} value={id}>
+                      {id === ANY ? t('design.any') : t(`design.${c.key}Opt.${id}`)}
                     </option>
                   ))}
                 </select>
@@ -344,7 +379,7 @@ export function WorkspaceView() {
             ))}
           </div>
           <div className="slider-hint" style={{ marginTop: 8 }}>
-            按属性描述目标音色，无需参考音频；全部留空时使用上方所选声音。英语口音仅对英文文本生效，方言仅对中文生效。
+            {t('workspace.designHint')}
           </div>
         </div>
 
@@ -357,18 +392,36 @@ export function WorkspaceView() {
             aria-expanded={advOpen}
           >
             <span className="advanced-toggle-text">
-              <span className="advanced-toggle-title">其他设置</span>
-              <span className="advanced-toggle-sub">语速、时长、解码与后处理</span>
+              <span className="advanced-toggle-title">{t('workspace.advancedTitle')}</span>
+              <span className="advanced-toggle-sub">{t('workspace.advancedSub')}</span>
             </span>
             <IconChevron className={`selector-arrow ${advOpen ? 'open' : ''}`} />
           </button>
 
           {advOpen && (
             <div className="advanced-body">
+              {/* -- 输出语言 -- */}
+              <div className="advanced-field">
+                <label className="form-label" htmlFor="adv-output-lang">
+                  {t('workspace.outputLanguage')}
+                </label>
+                <LangCombobox
+                  id="adv-output-lang"
+                  value={settings?.outputLanguage ?? ''}
+                  disabled={running}
+                  autoLabel={t('workspace.outputLangAuto')}
+                  placeholder={t('workspace.outputLangPlaceholder')}
+                  onChange={(v) => {
+                    if (settings) void saveSettings({ ...settings, outputLanguage: v })
+                  }}
+                />
+                <div className="slider-hint">{t('workspace.outputLangHint')}</div>
+              </div>
+
               {/* -- 时长与速度 -- */}
-              <div className="advanced-section">时长与速度</div>
+              <div className="advanced-section">{t('workspace.secSpeed')}</div>
               <Slider
-                label="语速"
+                label={t('workspace.speed')}
                 value={adv.speed}
                 min={0.5}
                 max={2}
@@ -376,11 +429,11 @@ export function WorkspaceView() {
                 format={(v) => `${v.toFixed(2)}×`}
                 onChange={(v) => patchAdv({ speed: v })}
                 disabled={running}
-                hint="> 1 更快更短，< 1 更慢更长；默认 1.0"
+                hint={t('workspace.speedHint')}
               />
               <div className="advanced-field">
                 <label className="form-label" htmlFor="adv-duration">
-                  固定时长（秒）
+                  {t('workspace.fixedDuration')}
                 </label>
                 <input
                   id="adv-duration"
@@ -389,7 +442,7 @@ export function WorkspaceView() {
                   min={0}
                   max={300}
                   step={0.5}
-                  placeholder="自动"
+                  placeholder={t('common.auto')}
                   value={adv.duration > 0 ? adv.duration : ''}
                   disabled={running}
                   onChange={(e) => {
@@ -399,15 +452,13 @@ export function WorkspaceView() {
                     })
                   }}
                 />
-                <div className="slider-hint">
-                  设置后忽略语速、不分块，按此时长生成；留空按文本自动估计
-                </div>
+                <div className="slider-hint">{t('workspace.fixedDurationHint')}</div>
               </div>
 
               {/* -- 解码 -- */}
-              <div className="advanced-section">解码</div>
+              <div className="advanced-section">{t('workspace.decoding')}</div>
               <Slider
-                label="去掩码步数"
+                label={t('workspace.numStep')}
                 value={adv.numStep}
                 min={4}
                 max={64}
@@ -415,10 +466,10 @@ export function WorkspaceView() {
                 format={(v) => String(v)}
                 onChange={(v) => patchAdv({ numStep: v })}
                 disabled={running}
-                hint="迭代去掩码步数，越多质量越好但越慢；默认 32，快速可用 16"
+                hint={t('workspace.numStepHint')}
               />
               <Slider
-                label="引导强度"
+                label={t('workspace.guidance')}
                 value={adv.guidanceScale}
                 min={0}
                 max={5}
@@ -426,10 +477,10 @@ export function WorkspaceView() {
                 format={(v) => v.toFixed(1)}
                 onChange={(v) => patchAdv({ guidanceScale: v })}
                 disabled={running}
-                hint="Classifier-free guidance scale；默认 2.0"
+                hint={t('workspace.guidanceHint')}
               />
               <Slider
-                label="时间偏移"
+                label={t('workspace.tShift')}
                 value={adv.tShift}
                 min={0.02}
                 max={0.5}
@@ -437,13 +488,13 @@ export function WorkspaceView() {
                 format={(v) => v.toFixed(2)}
                 onChange={(v) => patchAdv({ tShift: v })}
                 disabled={running}
-                hint="噪声调度时间步偏移，越小越强调早期步；默认 0.1"
+                hint={t('workspace.tShiftHint')}
               />
 
               {/* -- 采样 -- */}
-              <div className="advanced-section">采样</div>
+              <div className="advanced-section">{t('workspace.sampling')}</div>
               <Slider
-                label="位置温度"
+                label={t('workspace.positionTemp')}
                 value={adv.positionTemperature}
                 min={0}
                 max={10}
@@ -451,10 +502,10 @@ export function WorkspaceView() {
                 format={(v) => v.toFixed(1)}
                 onChange={(v) => patchAdv({ positionTemperature: v })}
                 disabled={running}
-                hint="掩码位置选择随机度，0 = 贪心；默认 5.0"
+                hint={t('workspace.positionTempHint')}
               />
               <Slider
-                label="Token 温度"
+                label={t('workspace.classTemp')}
                 value={adv.classTemperature}
                 min={0}
                 max={2}
@@ -462,10 +513,10 @@ export function WorkspaceView() {
                 format={(v) => v.toFixed(2)}
                 onChange={(v) => patchAdv({ classTemperature: v })}
                 disabled={running}
-                hint="Token 采样随机度，0 = 贪心；默认 0"
+                hint={t('workspace.classTempHint')}
               />
               <Slider
-                label="层级惩罚"
+                label={t('workspace.layerPenalty')}
                 value={adv.layerPenaltyFactor}
                 min={0}
                 max={10}
@@ -473,27 +524,27 @@ export function WorkspaceView() {
                 format={(v) => v.toFixed(1)}
                 onChange={(v) => patchAdv({ layerPenaltyFactor: v })}
                 disabled={running}
-                hint="深层码本惩罚，低层码本优先解码；默认 5.0"
+                hint={t('workspace.layerPenaltyHint')}
               />
 
               {/* -- 输出处理 -- */}
-              <div className="advanced-section">输出处理</div>
+              <div className="advanced-section">{t('workspace.outputProc')}</div>
               <ToggleRow
-                label="降噪标签"
-                hint="生成更干净的语音；默认开启"
+                label={t('workspace.denoise')}
+                hint={t('workspace.denoiseHint')}
                 value={adv.denoise}
                 onChange={(v) => patchAdv({ denoise: v })}
                 disabled={running}
               />
               <ToggleRow
-                label="输出后处理"
-                hint="移除长静音；默认开启"
+                label={t('workspace.postprocess')}
+                hint={t('workspace.postprocessHint')}
                 value={adv.postprocessOutput}
                 onChange={(v) => patchAdv({ postprocessOutput: v })}
                 disabled={running}
               />
               <Slider
-                label="静音填充"
+                label={t('workspace.pad')}
                 value={adv.padDuration}
                 min={0}
                 max={0.5}
@@ -501,10 +552,10 @@ export function WorkspaceView() {
                 format={(v) => `${v.toFixed(2)}s`}
                 onChange={(v) => patchAdv({ padDuration: v })}
                 disabled={running}
-                hint="首尾每侧静音填充时长；默认 0.1s"
+                hint={t('workspace.padHint')}
               />
               <Slider
-                label="淡入淡出"
+                label={t('workspace.fade')}
                 value={adv.fadeDuration}
                 min={0}
                 max={0.5}
@@ -512,13 +563,13 @@ export function WorkspaceView() {
                 format={(v) => `${v.toFixed(2)}s`}
                 onChange={(v) => patchAdv({ fadeDuration: v })}
                 disabled={running}
-                hint="首尾线性淡入淡出长度；默认 0.1s"
+                hint={t('workspace.fadeHint')}
               />
 
               {/* -- 长文本分块 -- */}
-              <div className="advanced-section">长文本分块</div>
+              <div className="advanced-section">{t('workspace.chunking')}</div>
               <Slider
-                label="分块时长"
+                label={t('workspace.chunkDur')}
                 value={adv.audioChunkDuration}
                 min={5}
                 max={30}
@@ -526,10 +577,10 @@ export function WorkspaceView() {
                 format={(v) => `${v}s`}
                 onChange={(v) => patchAdv({ audioChunkDuration: v })}
                 disabled={running}
-                hint="长文本每块目标音频时长；默认 15s"
+                hint={t('workspace.chunkDurHint')}
               />
               <Slider
-                label="分块阈值"
+                label={t('workspace.chunkThresh')}
                 value={adv.audioChunkThreshold}
                 min={10}
                 max={60}
@@ -537,7 +588,7 @@ export function WorkspaceView() {
                 format={(v) => `${v}s`}
                 onChange={(v) => patchAdv({ audioChunkThreshold: v })}
                 disabled={running}
-                hint="估计时长超过该值才启用分块；默认 30s"
+                hint={t('workspace.chunkThreshHint')}
               />
 
               <button
@@ -545,7 +596,7 @@ export function WorkspaceView() {
                 disabled={running}
                 onClick={() => setAdv(ADV_DEFAULTS)}
               >
-                恢复默认
+                {t('workspace.reset')}
               </button>
             </div>
           )}
@@ -553,11 +604,11 @@ export function WorkspaceView() {
 
         <button className="generate-btn" disabled={running} onClick={onGenerate}>
           {running ? (
-            '生成中…'
+            t('workspace.generating')
           ) : (
             <>
               <IconPlay />
-              生成语音
+              {t('workspace.genBtn')}
             </>
           )}
         </button>
@@ -575,6 +626,7 @@ function VoiceOption({
   selected: boolean
   onPick: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <button className={`voice-option ${selected ? 'selected' : ''}`} onClick={onPick}>
       <span className="voice-avatar">
@@ -583,7 +635,7 @@ function VoiceOption({
       <span className="voice-info">
         <span className="voice-name">{v.name}</span>
         <span className="voice-meta" style={{ display: 'block' }}>
-          {v.isClone ? '克隆音色' : '预置'} · {v.language}
+          {v.isClone ? t('voices.cloneTag') : t('voices.preset')}
         </span>
       </span>
     </button>

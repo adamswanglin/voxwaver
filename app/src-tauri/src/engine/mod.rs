@@ -20,8 +20,9 @@ pub struct RefMat {
 pub struct GenJob {
     pub text: String,
     pub instruct: Option<String>,
-    /// Language tag for OmniVoice (e.g. "zh", "en").
-    pub lang: String,
+    /// Language tag for OmniVoice (e.g. "zh", "en"); None = auto (the
+    /// engine emits its trained "None" sentinel).
+    pub lang: Option<String>,
     pub seed: u64,
     /// Per-request generation-parameter overrides; `None` fields keep the
     /// engine defaults.
@@ -161,7 +162,7 @@ impl Engine {
         }
         let wave = self.engine.tts_with(
             &job.text,
-            Some(&job.lang),
+            job.lang.as_deref(),
             job.instruct.as_deref(),
             Some(job.seed),
             &params,

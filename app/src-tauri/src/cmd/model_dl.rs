@@ -39,7 +39,7 @@ pub async fn download_model(
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
         .is_err()
     {
-        return Err("已有下载任务进行中".into());
+        return Err(rust_i18n::t!("dlBusy").into());
     }
     let result = run_download(&app, &state, &model, &source).await;
     state.downloading.store(false, Ordering::SeqCst);
@@ -60,7 +60,7 @@ async fn run_download(
         "modelscope" => {
             let ms = spec
                 .ms_repo
-                .ok_or_else(|| format!("{} 没有魔搭 ModelScope 镜像，请使用 HuggingFace 源", spec.display_name))?;
+                .ok_or_else(|| rust_i18n::t!("msMirror", model = spec.display_name).to_string())?;
             format!("https://modelscope.cn/models/{ms}/resolve/master/")
         }
         other => return Err(format!("unknown source {other:?} (hf|modelscope)")),
@@ -94,7 +94,8 @@ async fn run_download(
         };
         if cancel.is_cancelled() {
             let _ = app.emit("model://download", done_evt(Some("cancelled".into()), false));
-            return Err("已取消".into());
+            // Locale-independent sentinel; the frontend greps for "cancelled"
+            return Err("cancelled".into());
         }
         // resume support: skip files already fully downloaded
         if dest.is_file() {
@@ -104,7 +105,7 @@ async fn run_download(
         let url = format!("{base}{file}");
         let resp = client.get(&url).send().await.map_err(|e| e.to_string())?;
         if !resp.status().is_success() {
-            return Err(format!("下载 {file} 失败: HTTP {}", resp.status()));
+            return Err(rust_i18n::t!("dlFileFail", file = file, status = resp.status()).to_string());
         }
         let total = resp.content_length().unwrap_or(0);
         let part = dir.join(format!("{file}.part"));
@@ -116,7 +117,7 @@ async fn run_download(
         while let Some(chunk) = stream.next().await {
             if cancel.is_cancelled() {
                 let _ = std::fs::remove_file(&part);
-                return Err("已取消".into());
+                return Err("cancelled".into());
             }
             let chunk = chunk.map_err(|e| e.to_string())?;
             use std::io::Write;

@@ -97,7 +97,7 @@ pub async fn generate(
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
         .is_err()
     {
-        return Err("已有生成任务进行中".into());
+        return Err(rust_i18n::t!("genBusy").into());
     }
     let result = run_generate(&app, req).await;
     state.generating.store(false, Ordering::SeqCst);
@@ -106,7 +106,7 @@ pub async fn generate(
 
 async fn run_generate(app: &AppHandle, req: GenerateReq) -> Result<HistoryEntry, String> {
     if req.text.trim().is_empty() {
-        return Err("文本不能为空".into());
+        return Err(rust_i18n::t!("emptyText").into());
     }
     let state: State<'_, AppState> = app.state();
     let cancel = state.gen_cancel.clone();
@@ -145,7 +145,9 @@ async fn run_generate(app: &AppHandle, req: GenerateReq) -> Result<HistoryEntry,
             text: text.clone(),
             instruct: req.instruct.clone().filter(|s| !s.trim().is_empty()),
             overrides: req.overrides,
-            lang: settings.language.clone(),
+            // '' = auto: don't pass a lang tag, let the model follow the text
+            lang: (!settings.output_language.is_empty())
+                .then(|| settings.output_language.clone()),
             seed: params.seed,
         };
         let out = {
@@ -331,7 +333,8 @@ pub(crate) fn voice_name(ctx: &AppCtx, id: Option<&str>) -> String {
                 .map(|v| v.name)
                 .unwrap_or_else(|| "未知声音".into())
         }
-        _ => "默认音色".into(),
+        // no reference voice: empty name (displayed as a dash by the UI)
+        _ => String::new(),
     }
 }
 

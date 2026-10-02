@@ -1,86 +1,75 @@
+<div align="center">
+
+<img src="app/app-icon.png" width="160" alt="VoxWeaver" />
+
 # voxwaver
 
-[k2-fsa/OmniVoice](https://huggingface.co/k2-fsa/OmniVoice) 文本转语音（TTS）
-本地推理：**Tauri 桌面应用（VoxWeaver）+ Rust 推理库（omnivoice）**，
-基于 [huggingface/candle](https://github.com/huggingface/candle) fork，
-支持 macOS Metal / CUDA 加速，完全离线运行。
+A local, offline text-to-speech (TTS) desktop app powered by [OmniVoice](https://huggingface.co/k2-fsa/OmniVoice)
 
-## 构建
+Install and use right away · Fully offline · macOS Metal / NVIDIA CUDA acceleration
 
-```bash
-# 桌面应用（推荐入口）
-cd app
-pnpm install
-pnpm tauri dev      # 开发
-pnpm tauri build    # 打包 dmg / app（macOS 自动启用 Metal feature）
+**English** | [简体中文](README.zh-CN.md)
 
-# 纯 CLI
-cargo run -p omnivoice-cli --release -- --help
-```
+</div>
 
-candle 依赖指向 fork 分支 [adamswanglin/candle `voxwaver`](https://github.com/adamswanglin/candle/tree/voxwaver)
-（git 依赖，分支含：大 buffer 池精确分桶修复、直接式 Metal conv1d kernel、
-MLX 移植的多块 argsort 接线），无需本地 checkout。
+## Installation
 
-## 模型准备
+Grab the installer for your platform from
+[GitHub Releases](https://github.com/adamswanglin/voxwaver/releases) — the app
+works out of the box after installation:
 
-在应用「设置 → 模型」中从 HuggingFace 下载，或手动获取后选择本地目录：
+| Platform | Installer | Acceleration |
+| --- | --- | --- |
+| macOS | `.dmg` | Metal |
+| Windows | `.exe` installer | CUDA (automatic CPU fallback without an NVIDIA GPU) |
+| Linux | `.AppImage` / `.deb` | CUDA (automatic CPU fallback without an NVIDIA GPU) |
 
-```bash
-git clone https://huggingface.co/k2-fsa/OmniVoice
-# 需要 model.safetensors、tokenizer.json、audio_tokenizer/ (~3.3 GB)
-```
+## Getting Started
 
-## 推理链路
+1. Install and open the app — no environment setup required.
+2. On first use, download the OmniVoice model in **Settings → Models**
+   (~3.3 GB, one time only).
+   Prefer downloading it yourself? Fetch the model from
+   [k2-fsa/OmniVoice](https://huggingface.co/k2-fsa/OmniVoice) (when cloning
+   the repo, [Git LFS](https://git-lfs.com) is required for the audio
+   tokenizer weights), then link it in **Settings → Models → Select local
+   model folder**. The folder must contain `model.safetensors`,
+   `tokenizer.json` and `audio_tokenizer/model.safetensors`.
+3. Go to the **Workspace**, type your text, pick a voice and generate.
+   The same seed always produces identical output.
+4. Want to replicate someone's voice? Follow the wizard in the
+   **Voice Library**: upload a WAV sample and clone it zero-shot.
 
-两阶段流水线，对齐上游 vllm-omn PyTorch 实现：
+All inference runs on your machine — the app works without a network
+connection. Your data (settings / voices / history / audio / downloaded
+models) is stored in the system app-data directory, e.g.
+`~/Library/Application Support/com.voxwaver.app/` on macOS.
 
-1. **generator** — Qwen3 双向 backbone + 32 步迭代 unmasking，
-   产出 8 codebook 音频 token（25 fps）
-2. **dac** — HiggsAudioV2 RVQ + DAC 解码器 → 24 kHz 音频
+## Features
 
-参考音频（声音克隆）经 HuBERT 语义编码器 + 音频 tokenizer 编码为
-token 缓存复用；风格指令（instruct）与语言标签直接传入生成。
+- **Workspace** — text editing (word count / duration estimate, .txt import),
+  voice selection, style instructions, sampling parameters
+  (temperature / seed, fully reproducible with the same seed), generation
+  progress with mid-run cancel
+- **Voice Library** — zero-shot cloning wizard
+  (define a person → upload a WAV sample → confirm transcription & encode).
+  Reference audio is encoded once into a token cache and reused for every
+  generation; voice cards offer instant preview playback
+- **History** — local persistence (JSON metadata + wav), batch MP3 export /
+  delete / reveal in folder
+- **Player** — real-waveform playback bar with seek / fast-forward / rewind
+- **Settings** — device switching (auto/CPU/Metal/CUDA), model management
+  (HuggingFace download, import local directory, delete copies), UI language
+  (13 languages, also used as the synthesis language tag)
 
-## 桌面应用（VoxWeaver）
+## Documentation
 
-`app/` 基于 **Tauri v2 + React + Vite + TypeScript**，推理引擎直接内嵌为库
-（`omnivoice` crate），无 sidecar 进程。
+Build instructions, the inference pipeline and the codebase layout are
+covered in [TECHNICAL.md](TECHNICAL.md).
 
-功能：
+## License
 
-- **工作台**：文本编辑（字数 / 时长估计、导入 .txt）、声音选择、风格指令、
-  采样参数（温度 / 种子，同种子完全可复现）、生成进度与中途取消
-- **声音库**：zero-shot 克隆向导（定义人物 → 上传 WAV 样本 → 转写确认与编码），
-  参考音频编码为 token 缓存后复用，生成时不再重复编码；卡片可直接试听
-- **历史记录**：本地持久化（JSON 元数据 + wav），批量导出 MP3 / 删除 /
-  在文件夹中显示
-- **播放器**：真实波形播放条，seek / 快进快退
-- **设置**：设备（auto/CPU/Metal/CUDA）切换、模型管理
-  （HuggingFace 下载、导入本地目录、删除副本）、界面语言（13 种，
-  同时作为合成语言标签）
-
-桌面端数据（设置 / 声音 / 历史 / 音频 / 下载的模型）存放在系统应用数据目录：
-`~/Library/Application Support/com.voxwaver.app/`（macOS）。
-
-## 结构
-
-| 文件 | 内容 |
-| --- | --- |
-| `crates/omnivoice/src/engine.rs` | 推理引擎：模型常驻、进度回调、取消、参考音频编码、长文本分块与后处理 |
-| `crates/omnivoice/src/generator.rs` | Qwen3 backbone + 迭代 unmasking 采样 |
-| `crates/omnivoice/src/qwen3.rs` | Qwen3 transformer 权重与前向 |
-| `crates/omnivoice/src/dac.rs` | HiggsAudioV2 RVQ + DAC 解码器 |
-| `crates/omnivoice/src/encoder.rs` | 克隆参考编码（HuBERT + 音频 tokenizer） |
-| `crates/omnivoice/src/hubert.rs` | HuBERT 语义编码器 |
-| `crates/omnivoice/src/duration.rs` | 时长估计（参考校准 + speed） |
-| `crates/omnivoice/src/text.rs` | 长文本切分（标点分句、缩写保护、min-chunk 合并） |
-| `crates/omnivoice/src/bin/cli.rs` | `omnivoice-cli` 命令行 |
-| `crates/tts-common/` | 取消标志、进度事件、WAV 读写与重采样 |
-| `app/` | Tauri 桌面应用（Rust 后端 + React 前端） |
-
-## 许可
-
-本仓库代码以 [Apache-2.0](LICENSE) 发布；模型权重遵循其原始许可
-（CC-BY-NC，受训练数据如 Emilia 的约束），详见
-[k2-fsa/OmniVoice](https://huggingface.co/k2-fsa/OmniVoice)。
+The code in this repository is released under [Apache-2.0](LICENSE); model
+weights follow their original license (CC-BY-NC, constrained by training
+data such as Emilia), see
+[k2-fsa/OmniVoice](https://huggingface.co/k2-fsa/OmniVoice).

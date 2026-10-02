@@ -2,6 +2,7 @@
 
 pub mod cmd;
 pub mod engine;
+pub mod i18n;
 pub mod media_proto;
 pub mod models;
 pub mod state;
@@ -10,6 +11,10 @@ pub mod store;
 use state::{AppCtx, AppState, Dirs};
 use std::sync::Arc;
 use tauri::Manager;
+
+// crate-root invocation: the generated t! macro resolves its helper via
+// `crate::`, so this must not live inside a module
+rust_i18n::i18n!("i18n", fallback = "en");
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -21,6 +26,7 @@ pub fn run() {
             let app_data = app.path().app_data_dir()?;
             let dirs = Arc::new(Dirs::init(&app_data)?);
             let settings = store::load_settings(&dirs.settings_path());
+            i18n::set_ui_lang(&settings.language);
             app.manage(AppCtx { dirs });
             app.manage(AppState::new(settings));
 
@@ -58,6 +64,7 @@ pub fn run() {
             cmd::voices::resolve_voice_name,
             cmd::voices::save_recorded_sample,
             cmd::history::list_history,
+            cmd::history::search_history,
             cmd::history::delete_history,
             cmd::history::export_audio,
             cmd::history::reveal_audio,

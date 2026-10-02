@@ -1,0 +1,14 @@
+{
+  "genBusy": "Já há uma geração em curso",
+  "emptyText": "O texto não pode estar vazio",
+  "missingFiles": "Ficheiros em falta na pasta selecionada: %{files}",
+  "dlBusy": "Já há um download em curso",
+  "msMirror": "%{model} não tem réplica no ModelScope; use a fonte HuggingFace",
+  "dlFileFail": "Falha ao descarregar %{file}: HTTP %{status}",
+  "audioMissing": "Ficheiro de áudio não encontrado",
+  "nameEmpty": "O nome da voz não pode estar vazio",
+  "transcriptEmpty": "Forneça a transcrição da amostra",
+  "sampleMissing": "Ficheiro de amostra não encontrado",
+  "voiceNotFound": "Voz não encontrada",
+  "emptyRecording": "Os dados da gravação estão vazios"
+}

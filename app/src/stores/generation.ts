@@ -1,6 +1,7 @@
 import type { GenerateReq, GenProgress } from '../types'
 import { apiCancelGenerate, apiGenerate } from '../api'
 import { onGenError, onGenLog, onGenProgress } from '../api/events'
+import i18n from '../i18n'
 import { create } from 'zustand'
 import { useHistory } from './history'
 import { usePlayer } from './player'
@@ -10,7 +11,8 @@ import { toast } from './toast'
 /** One colored segment of the total progress bar. */
 export interface GenSegment {
   key: 'load' | 'encode' | 'gen' | 'decode' | 'write'
-  label: string
+  /** i18n key, resolved at render time */
+  labelKey: string
   color: string
   /** fill of this segment, 0..1 */
   fraction: number
@@ -18,11 +20,11 @@ export interface GenSegment {
 
 /** Pipeline phases in bar order; every segment renders equal width. */
 const SEGMENT_DEFS: Omit<GenSegment, 'fraction'>[] = [
-  { key: 'load', label: '加载模型', color: '#8b5cf6' },
-  { key: 'encode', label: '编码参考', color: '#06b6d4' },
-  { key: 'gen', label: '生成语音', color: '#1b61c9' },
-  { key: 'decode', label: '音频解码', color: '#f59e0b' },
-  { key: 'write', label: '写入文件', color: '#10b981' },
+  { key: 'load', labelKey: 'gen.seg.load', color: '#8b5cf6' },
+  { key: 'encode', labelKey: 'gen.seg.encode', color: '#06b6d4' },
+  { key: 'gen', labelKey: 'gen.seg.gen', color: '#1b61c9' },
+  { key: 'decode', labelKey: 'gen.seg.decode', color: '#f59e0b' },
+  { key: 'write', labelKey: 'gen.seg.write', color: '#10b981' },
 ]
 
 /** Which segment each progress event belongs to. */
@@ -125,45 +127,46 @@ function wireEvents() {
         stageText: '',
         subText: '',
       })
-      toast.info('已取消生成')
+      toast.info(i18n.t('toasts.genCancelled'))
     }
   })
 }
 
 function stageText(p: GenProgress): Partial<GenState> {
+  const t = i18n.t.bind(i18n)
   switch (p.stage) {
     case 'loading_lm':
-      return { stageText: '正在加载语言模型…', subText: '首次加载约需数秒' }
+      return { stageText: t('gen.loadLm'), subText: t('gen.loadLmSub') }
     case 'loading_codec':
-      return { stageText: '正在加载编解码器…', subText: '' }
+      return { stageText: t('gen.loadCodec'), subText: '' }
     case 'encoding_ref':
-      return { stageText: '正在编码参考音频…', subText: `${p.seconds.toFixed(1)}s 样本` }
+      return { stageText: t('gen.encodeRef'), subText: t('gen.encodeRefSub', { sec: p.seconds.toFixed(1) }) }
     case 'chunks':
-      return { stageText: '文本分块完成', subText: `共 ${p.total} 块` }
+      return { stageText: t('gen.chunksDone'), subText: t('gen.chunksSub', { n: p.total }) }
     case 'prefill':
       return {
-        stageText: `正在预填充 (${chunkOf(p)}/${totalOf(p)})`,
-        subText: `${p.tokens} tokens`,
+        stageText: t('gen.prefill', { chunk: chunkOf(p), total: totalOf(p) }),
+        subText: t('gen.prefillSub', { n: p.tokens }),
       }
     case 'generating':
       return {
-        stageText: `正在生成语音 (${chunkOf(p)}/${totalOf(p)})`,
-        subText: `${p.frames}/${p.max_frames} 帧 · ${p.fps.toFixed(1)} 帧/秒`,
+        stageText: t('gen.generating', { chunk: chunkOf(p), total: totalOf(p) }),
+        subText: t('gen.generatingSub', { frames: p.frames, max: p.max_frames, fps: p.fps.toFixed(1) }),
       }
     case 'unmasking':
       return {
-        stageText: `正在生成语音 (${chunkOf(p)}/${totalOf(p)})`,
-        subText: `迭代解码 ${p.step + 1}/${p.total_steps} 步`,
+        stageText: t('gen.generating', { chunk: chunkOf(p), total: totalOf(p) }),
+        subText: t('gen.unmaskSub', { step: p.step + 1, total: p.total_steps }),
       }
     case 'decoding':
       return {
-        stageText: `正在解码音频 (${chunkOf(p)}/${totalOf(p)})`,
-        subText: `${p.frames_total} 帧`,
+        stageText: t('gen.decoding', { chunk: chunkOf(p), total: totalOf(p) }),
+        subText: t('gen.decodingSub', { n: p.frames_total }),
       }
     case 'writing_wav':
-      return { stageText: '正在写入音频文件…', subText: '' }
+      return { stageText: t('gen.writing'), subText: '' }
     case 'done':
-      return { stageText: '完成', subText: `${p.seconds.toFixed(1)}s 音频` }
+      return { stageText: t('gen.done'), subText: t('gen.doneSub', { sec: p.seconds.toFixed(1) }) }
   }
 }
 
@@ -180,7 +183,7 @@ export const useGeneration = create<GenerationStore>((set) => ({
       running: true,
       cancelling: false,
       segments: freshSegments(),
-      stageText: '准备中…',
+      stageText: i18n.t('gen.prepare'),
       subText: '',
     })
     try {
@@ -199,14 +202,14 @@ export const useGeneration = create<GenerationStore>((set) => ({
         subText: '',
       })
       const msg = String(e)
-      if (!msg.includes('取消') && !msg.includes('cancelled')) toast.error(`生成失败：${msg}`)
+      if (!msg.toLowerCase().includes('cancelled')) toast.error(i18n.t('toasts.genFail', { msg }))
       return false
     }
   },
 
   cancel: () => {
     apiCancelGenerate()
-    set({ cancelling: true, stageText: '正在取消…' })
+    set({ cancelling: true, stageText: i18n.t('gen.cancelling') })
   },
 }))
 

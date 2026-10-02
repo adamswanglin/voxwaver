@@ -21,10 +21,6 @@ export const apiWarmupEngine = () => invoke<void>('warmup_engine')
 export const apiListVoices = () => invoke<VoiceView[]>('list_voices')
 export interface CreateVoiceReq {
   name: string
-  gender: string
-  age: string
-  style: string
-  language: string
   /** optional emoji icon; null/'' = none */
   icon: string | null
   samplePath: string
@@ -35,10 +31,6 @@ export const apiCreateVoice = (req: CreateVoiceReq) =>
 export interface UpdateVoiceReq {
   id: string
   name: string
-  gender: string
-  age: string
-  style: string
-  language: string
   /** optional emoji icon; null/'' = clear (name-letter fallback) */
   icon: string | null
   transcript: string
@@ -54,6 +46,9 @@ export const apiSaveSampleAudio = (sampleRate: number, samples: number[]) =>
 
 // ---- history ----
 export const apiListHistory = () => invoke<HistoryEntry[]>('list_history')
+/** Grep-filter history entries by raw JSON text (case-insensitive substring). */
+export const apiSearchHistory = (query: string) =>
+  invoke<HistoryEntry[]>('search_history', { query })
 export const apiDeleteHistory = (ids: string[]) => invoke<void>('delete_history', { ids })
 export const apiExportAudio = (ids: string[], destDir: string) =>
   invoke<number>('export_audio', { ids, destDir })

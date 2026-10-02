@@ -1,0 +1,14 @@
+{
+  "genBusy": "Generowanie jest już w toku",
+  "emptyText": "Tekst nie może być pusty",
+  "missingFiles": "W wybranym folderze brakuje plików: %{files}",
+  "dlBusy": "Pobieranie jest już w toku",
+  "msMirror": "%{model} nie ma kopii ModelScope; użyj źródła HuggingFace",
+  "dlFileFail": "Nie udało się pobrać %{file}: HTTP %{status}",
+  "audioMissing": "Nie znaleziono pliku audio",
+  "nameEmpty": "Nazwa głosu nie może być pusta",
+  "transcriptEmpty": "Podaj transkrypcję próbki",
+  "sampleMissing": "Nie znaleziono pliku próbki",
+  "voiceNotFound": "Nie znaleziono głosu",
+  "emptyRecording": "Dane nagrania są puste"
+}

@@ -24,15 +24,11 @@ fn read_transcript(dir: &std::path::Path) -> Option<String> {
 pub struct VoiceView {
     pub id: String,
     pub name: String,
-    pub gender: String,
-    pub age: String,
-    pub style: String,
-    pub language: String,
     pub tags: Vec<String>,
     /// optional emoji icon (null = name-letter fallback on the frontend)
     pub icon: Option<String>,
     pub created_at: i64,
-    /// built-in (default timbre) or cloned
+    /// cloned voice — the library only stores clones (no built-in timbres)
     pub is_clone: bool,
     /// playable reference sample, if any
     pub ref_wav: Option<String>,
@@ -48,24 +44,6 @@ fn clean_icon(icon: Option<&str>) -> Option<String> {
     (!icon.is_empty()).then(|| icon.to_string())
 }
 
-fn default_voice() -> VoiceView {
-    VoiceView {
-        id: "default".into(),
-        name: "默认音色".into(),
-        gender: "中性".into(),
-        age: "—".into(),
-        style: "zero-shot 默认音色（无参考音频）".into(),
-        language: "多语言".into(),
-        tags: vec!["预置".into()],
-        icon: None,
-        created_at: 0,
-        is_clone: false,
-        ref_wav: None,
-        transcript: None,
-        sample_seconds: None,
-    }
-}
-
 impl Voice {
     fn into_view(self, ctx: &AppCtx) -> VoiceView {
         let dir = ctx.dirs().voice_dir(&self.id);
@@ -77,10 +55,6 @@ impl Voice {
             is_clone: true,
             id: self.id,
             name: self.name,
-            gender: self.gender,
-            age: self.age,
-            style: self.style,
-            language: self.language,
             tags: self.tags,
             icon: self.icon,
             created_at: self.created_at,
@@ -92,7 +66,7 @@ impl Voice {
 pub fn list_voices(app: AppHandle) -> Vec<VoiceView> {
     let ctx = app.state::<AppCtx>();
     let idx = ctx.dirs().voices_index();
-    let mut views = vec![default_voice()];
+    let mut views = Vec::new();
     for v in store::load_voices(&idx) {
         let dir = ctx.dirs().voice_dir(&v.id);
         let ref_wav = dir.join("ref.wav").to_str().map(|s| s.to_string());
@@ -100,10 +74,6 @@ pub fn list_voices(app: AppHandle) -> Vec<VoiceView> {
         views.push(VoiceView {
             id: v.id,
             name: v.name,
-            gender: v.gender,
-            age: v.age,
-            style: v.style,
-            language: v.language,
             tags: v.tags,
             icon: v.icon,
             created_at: v.created_at,
@@ -120,10 +90,6 @@ pub fn list_voices(app: AppHandle) -> Vec<VoiceView> {
 #[serde(rename_all = "camelCase")]
 pub struct CreateVoiceReq {
     pub name: String,
-    pub gender: String,
-    pub age: String,
-    pub style: String,
-    pub language: String,
     /// optional emoji icon; empty string = none
     #[serde(default)]
     pub icon: Option<String>,
@@ -191,14 +157,14 @@ pub async fn create_voice(
     req: CreateVoiceReq,
 ) -> Result<VoiceView, String> {
     if req.name.trim().is_empty() {
-        return Err("声音名称不能为空".into());
+        return Err(rust_i18n::t!("nameEmpty").into());
     }
     if req.transcript.trim().is_empty() {
-        return Err("请填写样本的转写文本".into());
+        return Err(rust_i18n::t!("transcriptEmpty").into());
     }
     let sample = PathBuf::from(&req.sample_path);
     if !sample.is_file() {
-        return Err("样本文件不存在".into());
+        return Err(rust_i18n::t!("sampleMissing").into());
     }
 
     let app_blk = app.clone();
@@ -210,12 +176,8 @@ pub async fn create_voice(
         let voice = Voice {
             id: id.clone(),
             name: req.name.trim().to_string(),
-            gender: req.gender,
-            age: req.age,
-            style: req.style,
-            language: req.language,
             icon: clean_icon(req.icon.as_deref()),
-            tags: vec!["克隆".into()],
+            tags: vec!["clone".into()],
             created_at: now_ms(),
             sample_seconds: secs,
         };
@@ -234,10 +196,6 @@ pub async fn create_voice(
 pub struct UpdateVoiceReq {
     pub id: String,
     pub name: String,
-    pub gender: String,
-    pub age: String,
-    pub style: String,
-    pub language: String,
     /// optional emoji icon; empty string = clear (name-letter fallback)
     #[serde(default)]
     pub icon: Option<String>,
@@ -253,20 +211,17 @@ pub async fn update_voice(
     app: AppHandle,
     req: UpdateVoiceReq,
 ) -> Result<VoiceView, String> {
-    if req.id == "default" {
-        return Err("不能编辑默认音色".into());
-    }
     if req.name.trim().is_empty() {
-        return Err("声音名称不能为空".into());
+        return Err(rust_i18n::t!("nameEmpty").into());
     }
     if req.transcript.trim().is_empty() {
-        return Err("请填写样本的转写文本".into());
+        return Err(rust_i18n::t!("transcriptEmpty").into());
     }
     let sample = match &req.sample_path {
         Some(p) if !p.trim().is_empty() => {
             let p = PathBuf::from(p);
             if !p.is_file() {
-                return Err("样本文件不存在".into());
+                return Err(rust_i18n::t!("sampleMissing").into());
             }
             Some(p)
         }
@@ -281,12 +236,8 @@ pub async fn update_voice(
         let voice = voices
             .iter_mut()
             .find(|v| v.id == req.id)
-            .ok_or_else(|| anyhow::anyhow!("声音不存在"))?;
+            .ok_or_else(|| anyhow::anyhow!("{}", rust_i18n::t!("voiceNotFound")))?;
         voice.name = req.name.trim().to_string();
-        voice.gender = req.gender;
-        voice.age = req.age;
-        voice.style = req.style;
-        voice.language = req.language;
         voice.icon = clean_icon(req.icon.as_deref());
         let dir = ctx.dirs().voice_dir(&req.id);
         if let Some(sample) = &sample {
@@ -314,16 +265,13 @@ pub async fn update_voice(
 
 #[tauri::command]
 pub fn delete_voice(app: AppHandle, id: String) -> Result<(), String> {
-    if id == "default" {
-        return Err("不能删除默认音色".into());
-    }
     let ctx = app.state::<AppCtx>();
     let idx = ctx.dirs().voices_index();
     let mut voices = store::load_voices(&idx);
     let before = voices.len();
     voices.retain(|v| v.id != id);
     if voices.len() == before {
-        return Err("声音不存在".into());
+        return Err(rust_i18n::t!("voiceNotFound").into());
     }
     store::save_voices(&idx, &voices).map_err(|e| e.to_string())?;
     let dir = ctx.dirs().voice_dir(&id);
@@ -342,7 +290,7 @@ pub fn save_recorded_sample(
     samples: Vec<f32>,
 ) -> Result<String, String> {
     if samples.is_empty() {
-        return Err("录音数据为空".into());
+        return Err(rust_i18n::t!("emptyRecording").into());
     }
     let ctx = app.state::<AppCtx>();
     let dir = ctx.dirs().samples_dir();

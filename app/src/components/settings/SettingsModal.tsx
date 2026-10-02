@@ -1,36 +1,22 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { IconClose, IconCube, IconFolder, IconUpload } from '../Icons'
 import { formatBytes } from '../../lib/format'
+import { LANGUAGES } from '../../i18n/languages'
 import { useSettings } from '../../stores/settings'
 import { useView } from '../../stores/view'
 import type { ModelStatus } from '../../types'
 
 type Tab = 'basic' | 'model'
 
-// Languages supported by the models; the app UI ships the same set.
-const LANGUAGES = [
-  { value: 'zh', label: '简体中文' },
-  { value: 'en', label: 'English' },
-  { value: 'ja', label: '日本語' },
-  { value: 'de', label: 'Deutsch' },
-  { value: 'fr', label: 'Français' },
-  { value: 'es', label: 'Español' },
-  { value: 'ko', label: '한국어' },
-  { value: 'ar', label: 'العربية' },
-  { value: 'ru', label: 'Русский' },
-  { value: 'nl', label: 'Nederlands' },
-  { value: 'it', label: 'Italiano' },
-  { value: 'pl', label: 'Polski' },
-  { value: 'pt', label: 'Português' },
-] as const
-
 const DEVICE_OPTIONS = [
-  { id: 'cpu', title: 'CPU', sub: '纯 CPU 推理，兼容性最佳', recommended: false },
-  { id: 'metal', title: 'Metal', sub: 'macOS GPU 加速', recommended: true },
-  { id: 'cuda', title: 'CUDA', sub: 'NVIDIA GPU 加速', recommended: false },
+  { id: 'cpu', title: 'CPU', subKey: 'settings.deviceCpuSub', recommended: false },
+  { id: 'metal', title: 'Metal', subKey: 'settings.deviceMetalSub', recommended: true },
+  { id: 'cuda', title: 'CUDA', subKey: 'settings.deviceCudaSub', recommended: false },
 ] as const
 
 export function SettingsModal() {
+  const { t } = useTranslation()
   const openState = useView((s) => s.settingsOpen)
   const setOpen = useView((s) => s.setSettingsOpen)
   const [tab, setTab] = useState<Tab>('basic')
@@ -49,7 +35,7 @@ export function SettingsModal() {
 
   // 'auto' follows the recommended pick (Metal) for display
   const device = settings?.device === 'cpu' || settings?.device === 'cuda' ? settings.device : 'metal'
-  // legacy value from earlier builds
+  // legacy value from earlier builds (normalized again on load)
   const uiLang = settings?.language === 'zh-CN' ? 'zh' : (settings?.language ?? 'zh')
   const seed = settings?.seed ?? 0
 
@@ -59,11 +45,11 @@ export function SettingsModal() {
         className="settings-modal"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
-        aria-label="设置"
+        aria-label={t('settings.title')}
       >
         <div className="modal-header">
-          <div className="modal-title">设置</div>
-          <button className="modal-close" aria-label="关闭" onClick={() => setOpen(false)}>
+          <div className="modal-title">{t('settings.title')}</div>
+          <button className="modal-close" aria-label={t('common.close')} onClick={() => setOpen(false)}>
             <IconClose />
           </button>
         </div>
@@ -72,13 +58,13 @@ export function SettingsModal() {
             className={`settings-tab ${tab === 'basic' ? 'active' : ''}`}
             onClick={() => setTab('basic')}
           >
-            基本设置
+            {t('settings.tabBasic')}
           </button>
           <button
             className={`settings-tab ${tab === 'model' ? 'active' : ''}`}
             onClick={() => setTab('model')}
           >
-            模型设置
+            {t('settings.tabModel')}
           </button>
         </div>
 
@@ -86,11 +72,11 @@ export function SettingsModal() {
           {tab === 'basic' && (
             <div className="settings-panel active">
               <div className="form-group" style={{ marginBottom: 20 }}>
-                <label className="settings-label">界面语言</label>
+                <label className="settings-label">{t('settings.uiLanguage')}</label>
                 <select
                   className="form-input form-select"
                   style={{ width: '100%', fontSize: 13, padding: '10px 14px' }}
-                  aria-label="界面语言"
+                  aria-label={t('settings.uiLanguage')}
                   value={uiLang}
                   onChange={(e) => patch({ language: e.target.value })}
                 >
@@ -101,7 +87,7 @@ export function SettingsModal() {
                   ))}
                 </select>
                 <div className="slider-hint" style={{ marginTop: 6 }}>
-                  OmniVoice 模型会把界面语言作为合成语言标签传入。
+                  {t('settings.uiLanguageHint')}
                 </div>
               </div>
             </div>
@@ -111,7 +97,7 @@ export function SettingsModal() {
             <div className="settings-panel active">
               {/* 模型管理 */}
               <div className="form-group" style={{ marginBottom: 20 }}>
-                <label className="settings-label">模型</label>
+                <label className="settings-label">{t('settings.model')}</label>
                 {modelStatuses.map((m) => (
                   <ModelCard key={m.model} status={m} onActivate={() => void activate(m.model)} />
                 ))}
@@ -119,7 +105,7 @@ export function SettingsModal() {
 
               {/* 推理设备 */}
               <div className="form-group" style={{ marginBottom: 18 }}>
-                <label className="settings-label">推理设备</label>
+                <label className="settings-label">{t('settings.device')}</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {DEVICE_OPTIONS.map((o) => {
                     const unavailable =
@@ -133,12 +119,12 @@ export function SettingsModal() {
                       >
                         <div style={{ flex: 1 }}>
                           <div className="option-title">{o.title}</div>
-                          <div className="option-sub">{o.sub}</div>
+                          <div className="option-sub">{t(o.subKey)}</div>
                         </div>
                         {unavailable ? (
-                          <span className="option-sub">不可用</span>
+                          <span className="option-sub">{t('settings.unavailable')}</span>
                         ) : o.recommended ? (
-                          <span className="option-badge">推荐</span>
+                          <span className="option-badge">{t('settings.recommended')}</span>
                         ) : null}
                       </button>
                     )
@@ -148,9 +134,9 @@ export function SettingsModal() {
 
               {/* 生成参数 */}
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="settings-label">生成参数</label>
+                <label className="settings-label">{t('settings.genParams')}</label>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">随机种子</label>
+                  <label className="form-label">{t('settings.seed')}</label>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <input
                       className="form-input"
@@ -165,12 +151,12 @@ export function SettingsModal() {
                       className="btn-secondary"
                       style={{ padding: '0 14px' }}
                       onClick={() => patch({ seed: Math.floor(Math.random() * 1_000_000) })}
-                      title="随机种子"
+                      title={t('settings.seed')}
                     >
                       🎲
                     </button>
                   </div>
-                  <div className="slider-hint">相同种子 + 相同参数 = 完全可复现的输出</div>
+                  <div className="slider-hint">{t('settings.seedHint')}</div>
                 </div>
               </div>
             </div>
@@ -188,6 +174,7 @@ function ModelCard({
   status: ModelStatus
   onActivate: () => void
 }) {
+  const { t } = useTranslation()
   const download = useSettings((s) => s.download)
   const importLocal = useSettings((s) => s.importLocal)
   const downloadModel = useSettings((s) => s.downloadModel)
@@ -214,7 +201,7 @@ function ModelCard({
             width: 40,
             height: 40,
             borderRadius: 10,
-            background: 'linear-gradient(135deg,#f093fb,#f5576c)',
+            background: 'linear-gradient(135deg,#f093fb,#f5577c)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -239,17 +226,17 @@ function ModelCard({
                   verticalAlign: 'middle',
                 }}
               >
-                使用中
+                {t('settings.inUse')}
               </span>
             )}
           </div>
           <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>
-            Qwen3 迭代解码 · 24 kHz · 支持克隆与风格指令 · ~3.3 GB
+            {t('settings.modelMeta')}
           </div>
         </div>
         {status.active ? (
           <span className="status-btn installed" style={{ fontSize: 11 }}>
-            当前模型
+            {t('settings.currentModel')}
           </span>
         ) : status.installed ? (
           <button
@@ -257,15 +244,15 @@ function ModelCard({
             style={{ fontSize: 11, cursor: 'pointer' }}
             onClick={onActivate}
           >
-            使用此模型
+            {t('settings.useThisModel')}
           </button>
         ) : downloadingThis ? (
           <button className="status-btn downloading" style={{ fontSize: 11 }}>
-            下载中
+            {t('settings.downloading')}
           </button>
         ) : (
           <button className="status-btn downloading" style={{ fontSize: 11 }}>
-            未安装
+            {t('settings.notInstalled')}
           </button>
         )}
       </div>
@@ -275,14 +262,15 @@ function ModelCard({
           <IconFolder />
           <span>{status.path}</span>
           <button className="link-danger" onClick={() => void deleteModel(status.model)}>
-            删除
+            {t('common.delete')}
           </button>
         </div>
       ) : downloadingThis ? (
         <div className="dl-progress" style={{ marginTop: 0 }}>
           <div className="dl-file-label">
             <span>
-              下载中 {download!.fileIndex + 1}/{download!.fileCount} · {download!.file}
+              {t('settings.dlFile', { i: download!.fileIndex + 1, n: download!.fileCount })} ·{' '}
+              {download!.file}
             </span>
             <span>
               {formatBytes(download!.downloaded)}
@@ -298,7 +286,7 @@ function ModelCard({
             style={{ marginTop: 10 }}
             onClick={cancelDownload}
           >
-            取消下载
+            {t('settings.cancelDownload')}
           </button>
         </div>
       ) : (
@@ -306,15 +294,15 @@ function ModelCard({
           <button className="install-option" onClick={() => void downloadModel(status.model, 'hf')}>
             <IconUpload />
             <div style={{ flex: 1 }}>
-              <div className="option-title">从 HuggingFace 下载</div>
-              <div className="option-sub">k2-fsa/OmniVoice · 海外源</div>
+              <div className="option-title">{t('settings.fromHf')}</div>
+              <div className="option-sub">{t('settings.fromHfSub')}</div>
             </div>
           </button>
           <button className="install-option" onClick={() => void importLocal(status.model)}>
             <IconFolder />
             <div style={{ flex: 1 }}>
-              <div className="option-title">选择本地模型文件夹</div>
-              <div className="option-sub">需包含 model.safetensors 和 audio_tokenizer/</div>
+              <div className="option-title">{t('settings.importLocal')}</div>
+              <div className="option-sub">{t('settings.importLocalSub')}</div>
             </div>
           </button>
         </div>

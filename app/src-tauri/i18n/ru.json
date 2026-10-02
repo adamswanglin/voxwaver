@@ -1,0 +1,14 @@
+{
+  "genBusy": "Генерация уже выполняется",
+  "emptyText": "Текст не должен быть пустым",
+  "missingFiles": "В выбранной папке отсутствуют файлы: %{files}",
+  "dlBusy": "Загрузка уже выполняется",
+  "msMirror": "У %{model} нет зеркала ModelScope; используйте источник HuggingFace",
+  "dlFileFail": "Не удалось загрузить %{file}: HTTP %{status}",
+  "audioMissing": "Аудиофайл не найден",
+  "nameEmpty": "Имя голоса не должно быть пустым",
+  "transcriptEmpty": "Укажите расшифровку образца",
+  "sampleMissing": "Файл образца не найден",
+  "voiceNotFound": "Голос не найден",
+  "emptyRecording": "Данные записи пусты"
+}

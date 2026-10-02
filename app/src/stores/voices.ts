@@ -7,12 +7,13 @@ import {
   type CreateVoiceReq,
   type UpdateVoiceReq,
 } from '../api'
+import i18n from '../i18n'
 import { create } from 'zustand'
 import { toast } from './toast'
 
 interface VoicesStore {
   voices: VoiceView[]
-  /** currently selected voice in the workspace (null = default) */
+  /** currently selected voice in the workspace (null = no voice selected) */
   currentId: string | null
   load: () => Promise<void>
   setCurrent: (id: string | null) => void
@@ -36,10 +37,10 @@ export const useVoices = create<VoicesStore>((set, get) => ({
     try {
       const v = await apiCreateVoice(req)
       await get().load()
-      toast.success(`声音「${v.name}」创建成功`)
+      toast.success(i18n.t('toasts.voiceCreated', { name: v.name }))
       return true
     } catch (e) {
-      toast.error(`创建失败：${e}`)
+      toast.error(i18n.t('toasts.voiceCreateFail', { msg: String(e) }))
       return false
     }
   },
@@ -48,10 +49,10 @@ export const useVoices = create<VoicesStore>((set, get) => ({
     try {
       await apiUpdateVoice(req)
       await get().load()
-      toast.success(`声音「${req.name}」已更新`)
+      toast.success(i18n.t('toasts.voiceUpdated', { name: req.name }))
       return true
     } catch (e) {
-      toast.error(`保存失败：${e}`)
+      toast.error(i18n.t('toasts.voiceUpdateFail', { msg: String(e) }))
       return false
     }
   },
@@ -61,7 +62,7 @@ export const useVoices = create<VoicesStore>((set, get) => ({
       await apiDeleteVoice(id)
       if (get().currentId === id) set({ currentId: null })
       await get().load()
-      toast.info('声音已删除')
+      toast.info(i18n.t('toasts.voiceDeleted'))
     } catch (e) {
       toast.error(String(e))
     }

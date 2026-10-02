@@ -1,6 +1,7 @@
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { mediaObjectUrl, setActivePlaybackSrc } from '../lib/media'
 import type { HistoryEntry } from '../types'
+import i18n from '../i18n'
 import { create } from 'zustand'
 import { toast } from './toast'
 
@@ -40,7 +41,7 @@ function ensureAudio(): HTMLAudioElement {
     const kind =
       code === 1 ? 'aborted' : code === 2 ? 'network' : code === 3 ? 'decode' : code === 4 ? 'not-supported' : String(code)
     console.error('audio error', kind, a.error?.message, a.src)
-    toast.error(`音频加载失败（${kind}）：${a.error?.message ?? a.src}`)
+    toast.error(i18n.t('toasts.audioLoadFail', { kind, msg: a.error?.message ?? a.src ?? '' }))
   })
   audio.addEventListener('play', () => usePlayer.setState({ playing: true, doneNotice: false }))
   audio.addEventListener('pause', () => usePlayer.setState({ playing: false }))
@@ -60,7 +61,9 @@ function reportPlayError(e: unknown) {
   // context. Stay silent — the blob is cached now, so the next playPause
   // click plays instantly from inside a real gesture.
   if ((e as DOMException)?.name === 'NotAllowedError') return
-  toast.error(`播放失败：${(e as DOMException)?.name ?? ''} ${(e as DOMException)?.message ?? e}`)
+  toast.error(
+    i18n.t('toasts.playFail', { name: (e as DOMException)?.name ?? '', msg: (e as DOMException)?.message ?? String(e) }),
+  )
 }
 
 async function startEntry(a: HTMLAudioElement, entry: HistoryEntry, autoplay: boolean) {
@@ -71,7 +74,7 @@ async function startEntry(a: HTMLAudioElement, entry: HistoryEntry, autoplay: bo
     a.src = url
   } catch (e) {
     console.error('load audio failed', e)
-    toast.error(`音频加载失败：${e}`)
+    toast.error(i18n.t('toasts.audioLoadFail', { kind: 'load', msg: String(e) }))
     return
   }
   if (autoplay) a.play().catch(reportPlayError)

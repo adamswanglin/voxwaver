@@ -1,0 +1,14 @@
+{
+  "genBusy": "Une génération est déjà en cours",
+  "emptyText": "Le texte ne doit pas être vide",
+  "missingFiles": "Fichiers manquants dans le dossier sélectionné : %{files}",
+  "dlBusy": "Un téléchargement est déjà en cours",
+  "msMirror": "%{model} n'a pas de miroir ModelScope ; utilisez la source HuggingFace",
+  "dlFileFail": "Échec du téléchargement de %{file} : HTTP %{status}",
+  "audioMissing": "Fichier audio introuvable",
+  "nameEmpty": "Le nom de la voix ne doit pas être vide",
+  "transcriptEmpty": "Veuillez fournir la transcription de l'échantillon",
+  "sampleMissing": "Fichier d'échantillon introuvable",
+  "voiceNotFound": "Voix introuvable",
+  "emptyRecording": "Les données d'enregistrement sont vides"
+}

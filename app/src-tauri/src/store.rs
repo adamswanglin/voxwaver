@@ -19,8 +19,10 @@ pub struct Settings {
     #[serde(default)]
     pub model_dirs: BTreeMap<String, String>,
     /// Interface language: en | zh | ja | de | fr | es | ko | ar | ru | nl | it | pl | pt.
-    /// Also passed to OmniVoice as the `lang` tag.
     pub language: String,
+    /// TTS output language tag passed to OmniVoice ('' = auto, not passed).
+    #[serde(default)]
+    pub output_language: String,
     /// Deterministic seed; reroll from the UI for a new take.
     #[serde(default = "rand_seed")]
     pub seed: u64,
@@ -60,6 +62,7 @@ impl Default for Settings {
             model: default_model(),
             model_dirs: BTreeMap::new(),
             language: "zh".into(),
+            output_language: String::new(),
             seed: rand_seed(),
         }
     }
@@ -81,10 +84,6 @@ fn rand_seed() -> u64 {
 pub struct Voice {
     pub id: String,
     pub name: String,
-    pub gender: String,
-    pub age: String,
-    pub style: String,
-    pub language: String,
     #[serde(default)]
     pub tags: Vec<String>,
     /// optional emoji icon shown in place of the name-letter fallback
@@ -94,12 +93,6 @@ pub struct Voice {
     pub created_at: i64,
     /// Sample duration in seconds (approx, pre-resample).
     pub sample_seconds: f64,
-}
-
-impl Voice {
-    pub fn is_preset(&self) -> bool {
-        false
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -181,6 +174,30 @@ pub fn load_history_in(dir: &Path, root: &Path) -> Vec<HistoryEntry> {
                 .map(|mut e| {
                     e.wav_abs = root.join(&e.wav_rel).to_string_lossy().into_owned();
                     e
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    entries.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    entries
+}
+
+/// Search history by grepping the raw JSON text of each entry file —
+/// case-insensitive substring match, no JSON parsing on the miss path.
+pub fn search_history_in(dir: &Path, root: &Path, query: &str) -> Vec<HistoryEntry> {
+    let needle = query.to_lowercase();
+    let mut entries: Vec<HistoryEntry> = std::fs::read_dir(dir)
+        .map(|rd| {
+            rd.filter_map(|e| e.ok())
+                .filter(|e| e.path().extension().is_some_and(|x| x == "json"))
+                .filter_map(|e| {
+                    let raw = std::fs::read_to_string(e.path()).ok()?;
+                    if !raw.to_lowercase().contains(&needle) {
+                        return None;
+                    }
+                    let mut entry = read_json::<HistoryEntry>(&e.path()).ok()?;
+                    entry.wav_abs = root.join(&entry.wav_rel).to_string_lossy().into_owned();
+                    Some(entry)
                 })
                 .collect()
         })

@@ -1,0 +1,14 @@
+{
+  "genBusy": "生成タスクが既に進行中です",
+  "emptyText": "テキストは空にできません",
+  "missingFiles": "選択したフォルダにファイルがありません: %{files}",
+  "dlBusy": "ダウンロードが既に進行中です",
+  "msMirror": "%{model} には ModelScope ミラーがありません。HuggingFace ソースをご利用ください",
+  "dlFileFail": "%{file} のダウンロードに失敗しました: HTTP %{status}",
+  "audioMissing": "音声ファイルが見つかりません",
+  "nameEmpty": "音声名は空にできません",
+  "transcriptEmpty": "サンプルの文字起こしを入力してください",
+  "sampleMissing": "サンプルファイルが見つかりません",
+  "voiceNotFound": "音声が見つかりません",
+  "emptyRecording": "録音データが空です"
+}

@@ -1,0 +1,14 @@
+{
+  "genBusy": "已有生成任务进行中",
+  "emptyText": "文本不能为空",
+  "missingFiles": "所选目录缺少文件: %{files}",
+  "dlBusy": "已有下载任务进行中",
+  "msMirror": "%{model} 没有魔搭 ModelScope 镜像，请使用 HuggingFace 源",
+  "dlFileFail": "下载 %{file} 失败: HTTP %{status}",
+  "audioMissing": "音频文件不存在",
+  "nameEmpty": "声音名称不能为空",
+  "transcriptEmpty": "请填写样本的转写文本",
+  "sampleMissing": "样本文件不存在",
+  "voiceNotFound": "声音不存在",
+  "emptyRecording": "录音数据为空"
+}

@@ -10,6 +10,7 @@ import {
   apiSetSettings,
 } from '../api'
 import { onModelDownload } from '../api/events'
+import i18n, { applyLanguage } from '../i18n'
 import { create } from 'zustand'
 import { toast } from './toast'
 
@@ -52,11 +53,15 @@ export const useSettings = create<SettingsStore>((set, get) => ({
       apiListModelStatus(),
       apiProbeDevices(),
     ])
+    // legacy value from earlier builds
+    if (settings.language === 'zh-CN') settings.language = 'zh'
+    applyLanguage(settings.language)
     set({ settings, modelStatuses, devices })
   },
 
   save: async (s) => {
     await apiSetSettings(s)
+    if (s.language !== get().settings?.language) applyLanguage(s.language)
     set({ settings: s })
     const modelStatuses = await apiListModelStatus()
     set({ modelStatuses })
@@ -66,14 +71,14 @@ export const useSettings = create<SettingsStore>((set, get) => ({
     const s = get().settings
     if (!s || s.model === model) return
     await get().save({ ...s, model })
-    toast.info('已切换模型，下次生成时生效')
+    toast.info(i18n.t('toasts.modelSwitched'))
   },
 
   importLocal: async (model) => {
     try {
       const path = await apiImportLocalModel(model)
       if (path) {
-        toast.success(`已导入模型：${path}`)
+        toast.success(i18n.t('toasts.modelImported', { path }))
         await get().load()
       }
     } catch (e) {
@@ -85,12 +90,12 @@ export const useSettings = create<SettingsStore>((set, get) => ({
     try {
       await apiDownloadModel(model, source)
       set({ download: null })
-      toast.success('模型下载完成')
+      toast.success(i18n.t('toasts.downloadDone'))
       await get().load()
     } catch (e) {
       set({ download: null })
       const msg = String(e)
-      if (!msg.includes('取消')) toast.error(`下载失败：${msg}`)
+      if (!msg.toLowerCase().includes('cancelled')) toast.error(i18n.t('toasts.downloadFail', { msg }))
       await get().load()
     }
   },
@@ -102,7 +107,7 @@ export const useSettings = create<SettingsStore>((set, get) => ({
   deleteModel: async (model) => {
     try {
       await apiDeleteModel(model)
-      toast.info('已删除本地模型副本')
+      toast.info(i18n.t('toasts.modelDeleted'))
       await get().load()
     } catch (e) {
       toast.error(String(e))

@@ -1,0 +1,14 @@
+{
+  "genBusy": "هناك مهمة توليد قيد التنفيذ بالفعل",
+  "emptyText": "يجب ألا يكون النص فارغًا",
+  "missingFiles": "الملفات التالية مفقودة من المجلد المحدد: %{files}",
+  "dlBusy": "هناك تنزيل قيد التنفيذ بالفعل",
+  "msMirror": "لا يوجد مرآة ModelScope لـ %{model}؛ يرجى استخدام مصدر HuggingFace",
+  "dlFileFail": "فشل تنزيل %{file}: HTTP %{status}",
+  "audioMissing": "ملف الصوت غير موجود",
+  "nameEmpty": "يجب ألا يكون اسم الصوت فارغًا",
+  "transcriptEmpty": "يرجى إدخال نص تفريغ العينة",
+  "sampleMissing": "ملف العينة غير موجود",
+  "voiceNotFound": "لم يتم العثور على الصوت",
+  "emptyRecording": "بيانات التسجيل فارغة"
+}

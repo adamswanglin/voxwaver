@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { open } from '@tauri-apps/plugin-dialog'
+import { useTranslation } from 'react-i18next'
 import { apiRevealAudio } from '../api'
-import { IconCopy, IconFolder, IconPause, IconPlay, IconTrash } from '../components/Icons'
+import { IconCopy, IconFolder, IconPause, IconPlay, IconSearch, IconTrash } from '../components/Icons'
 import { formatBytes, formatDate, formatDuration, isThisWeek, isToday } from '../lib/format'
+import { historyVoiceName } from '../i18n/display'
 import { useHistory } from '../stores/history'
 import { usePlayer } from '../stores/player'
 import { toast } from '../stores/toast'
@@ -11,6 +13,7 @@ import type { HistoryEntry } from '../types'
 type Filter = 'all' | 'today' | 'week'
 
 export function HistoryView() {
+  const { t } = useTranslation()
   const [filter, setFilter] = useState<Filter>('all')
   const entries = useHistory((s) => s.entries)
   const selected = useHistory((s) => s.selected)
@@ -19,6 +22,14 @@ export function HistoryView() {
   const exportSelected = useHistory((s) => s.exportSelected)
   const clearSelection = useHistory((s) => s.clearSelection)
   const load = useHistory((s) => s.load)
+  const search = useHistory((s) => s.search)
+  const [query, setQuery] = useState('')
+
+  // debounce keystrokes; empty query falls back to the full list
+  useEffect(() => {
+    const t = setTimeout(() => void search(query.trim()), 250)
+    return () => clearTimeout(t)
+  }, [query, search])
 
   const shown = entries.filter((e) =>
     filter === 'today' ? isToday(e.createdAt) : filter === 'week' ? isThisWeek(e.createdAt) : true,
@@ -27,7 +38,7 @@ export function HistoryView() {
 
   const onExport = async () => {
     if (!selIds.length) return
-    const dir = await open({ directory: true, title: '选择导出位置' })
+    const dir = await open({ directory: true, title: t('common.exportDir') })
     if (!dir) return
     await exportSelected(dir)
   }
@@ -36,7 +47,7 @@ export function HistoryView() {
     <>
       <div className="history-header">
         <h2 className="panel-title" style={{ fontSize: 20 }}>
-          历史记录
+          {t('history.title')}
           <span
             className="panel-subtitle"
             style={{ marginLeft: 10, fontSize: 13 }}
@@ -45,36 +56,56 @@ export function HistoryView() {
             onClick={() => void load()}
             onKeyDown={(e) => e.key === 'Enter' && void load()}
           >
-            刷新
+            {t('common.refresh')}
           </span>
         </h2>
-        <div className="history-filters">
-          <button
-            className={`history-filter-btn ${filter === 'all' ? 'active' : ''}`}
-            onClick={() => setFilter('all')}
-          >
-            全部
-          </button>
-          <button
-            className={`history-filter-btn ${filter === 'today' ? 'active' : ''}`}
-            onClick={() => setFilter('today')}
-          >
-            今天
-          </button>
-          <button
-            className={`history-filter-btn ${filter === 'week' ? 'active' : ''}`}
-            onClick={() => setFilter('week')}
-          >
-            本周
-          </button>
+        <div className="history-toolbar">
+          <div className="history-search">
+            <IconSearch />
+            <input
+              value={query}
+              placeholder={t('history.searchPlaceholder')}
+              aria-label={t('history.searchAria')}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            {query && (
+              <button
+                className="history-search-clear"
+                aria-label={t('history.clearSearch')}
+                onClick={() => setQuery('')}
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          <div className="history-filters">
+            <button
+              className={`history-filter-btn ${filter === 'all' ? 'active' : ''}`}
+              onClick={() => setFilter('all')}
+            >
+              {t('common.all')}
+            </button>
+            <button
+              className={`history-filter-btn ${filter === 'today' ? 'active' : ''}`}
+              onClick={() => setFilter('today')}
+            >
+              {t('history.today')}
+            </button>
+            <button
+              className={`history-filter-btn ${filter === 'week' ? 'active' : ''}`}
+              onClick={() => setFilter('week')}
+            >
+              {t('history.week')}
+            </button>
+          </div>
         </div>
       </div>
 
       {selIds.length > 0 && (
         <div className="batch-bar show">
-          已选择 {selIds.length} 条
+          {t('history.selectedN', { n: selIds.length })}
           <button className="batch-btn" onClick={onExport}>
-            导出 WAV
+            {t('history.exportWav')}
           </button>
           <button
             className="batch-btn"
@@ -82,14 +113,14 @@ export function HistoryView() {
               void remove(selIds)
             }}
           >
-            删除
+            {t('common.delete')}
           </button>
           <button
             className="batch-btn"
             style={{ marginLeft: 'auto' }}
             onClick={clearSelection}
           >
-            取消选择
+            {t('history.cancelSel')}
           </button>
         </div>
       )}
@@ -98,15 +129,15 @@ export function HistoryView() {
         <div className="table-header">
           <span />
           <span />
-          <span>文本内容</span>
-          <span>声音</span>
-          <span>日期</span>
-          <span>时长</span>
-          <span>大小</span>
-          <span>操作</span>
+          <span>{t('history.colText')}</span>
+          <span>{t('history.colVoice')}</span>
+          <span>{t('history.colDate')}</span>
+          <span>{t('history.colDuration')}</span>
+          <span>{t('history.colSize')}</span>
+          <span>{t('history.colActions')}</span>
         </div>
         {shown.length === 0 ? (
-          <div className="empty-state">暂无生成记录</div>
+          <div className="empty-state">{query.trim() ? t('history.noMatch') : t('history.empty')}</div>
         ) : (
           shown.map((e) => (
             <HistoryRow
@@ -131,6 +162,7 @@ function HistoryRow({
   checked: boolean
   onToggle: () => void
 }) {
+  const { t } = useTranslation()
   const playEntry = usePlayer((s) => s.play)
   const isCurrent = usePlayer((s) => s.entry?.id === entry.id)
   const isPlaying = usePlayer((s) => s.playing)
@@ -142,7 +174,7 @@ function HistoryRow({
         className={`table-checkbox ${checked ? 'checked' : ''}`}
         role="checkbox"
         aria-checked={checked}
-        aria-label="选择"
+        aria-label={t('history.selectAria')}
         onClick={onToggle}
       >
         {checked && (
@@ -154,7 +186,7 @@ function HistoryRow({
       <button
         className="table-action-btn"
         style={{ width: 28, height: 28, color: playing ? 'var(--seed-primary)' : undefined }}
-        aria-label={playing ? '暂停' : '播放'}
+        aria-label={playing ? t('history.pause') : t('history.play')}
         onClick={() => playEntry(entry)}
       >
         {playing ? <IconPause /> : <IconPlay />}
@@ -162,19 +194,19 @@ function HistoryRow({
       <span className="text-preview" title={entry.text}>
         {entry.text}
       </span>
-      <span className="table-voice">{entry.voiceName}</span>
+      <span className="table-voice">{historyVoiceName(entry.voiceName)}</span>
       <span className="table-voice">{formatDate(entry.createdAt)}</span>
       <span className="table-duration">{formatDuration(entry.durationSec)}</span>
       <span className="table-duration">{formatBytes(entry.fileSize)}</span>
       <span className="table-actions">
         <button
           className="table-action-btn"
-          aria-label="复制文本"
-          title="复制文本"
+          aria-label={t('history.copyText')}
+          title={t('history.copyText')}
           onClick={() => {
             navigator.clipboard
               .writeText(entry.text)
-              .then(() => toast.success('已复制文本'))
+              .then(() => toast.success(t('history.copied')))
               .catch((e) => toast.error(String(e)))
           }}
         >
@@ -182,8 +214,8 @@ function HistoryRow({
         </button>
         <button
           className="table-action-btn"
-          aria-label="在文件夹中显示"
-          title="在文件夹中显示"
+          aria-label={t('history.reveal')}
+          title={t('history.reveal')}
           onClick={() => {
             apiRevealAudio(entry.id).catch((e) => toast.error(String(e)))
           }}
@@ -192,8 +224,8 @@ function HistoryRow({
         </button>
         <button
           className="table-action-btn"
-          aria-label="删除"
-          title="删除"
+          aria-label={t('common.delete')}
+          title={t('common.delete')}
           onClick={() => {
             void useHistory.getState().remove([entry.id])
           }}

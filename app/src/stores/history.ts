@@ -1,5 +1,6 @@
 import type { HistoryEntry } from '../types'
-import { apiDeleteHistory, apiExportAudio, apiListHistory } from '../api'
+import { apiDeleteHistory, apiExportAudio, apiListHistory, apiSearchHistory } from '../api'
+import i18n from '../i18n'
 import { create } from 'zustand'
 import { toast } from './toast'
 
@@ -7,6 +8,8 @@ interface HistoryStore {
   entries: HistoryEntry[]
   selected: Set<string>
   load: () => Promise<void>
+  /** Empty query = full list; otherwise grep-filtered by the backend. */
+  search: (query: string) => Promise<void>
   remove: (ids: string[]) => Promise<void>
   toggle: (id: string) => void
   clearSelection: () => void
@@ -22,13 +25,18 @@ export const useHistory = create<HistoryStore>((set, get) => ({
     set({ entries })
   },
 
+  search: async (query) => {
+    const entries = query ? await apiSearchHistory(query) : await apiListHistory()
+    set({ entries })
+  },
+
   remove: async (ids) => {
     await apiDeleteHistory(ids)
     const sel = new Set(get().selected)
     ids.forEach((id) => sel.delete(id))
     set({ selected: sel })
     await get().load()
-    toast.info(`已删除 ${ids.length} 条记录`)
+    toast.info(i18n.t('toasts.historyDeleted', { n: ids.length }))
   },
 
   toggle: (id) => {
@@ -45,10 +53,10 @@ export const useHistory = create<HistoryStore>((set, get) => ({
     if (!ids.length) return
     try {
       const n = await apiExportAudio(ids, destDir)
-      toast.success(`已导出 ${n} 个音频文件`)
+      toast.success(i18n.t('toasts.exported', { n }))
       get().clearSelection()
     } catch (e) {
-      toast.error(`导出失败：${e}`)
+      toast.error(i18n.t('toasts.exportFail', { msg: String(e) }))
     }
   },
 }))

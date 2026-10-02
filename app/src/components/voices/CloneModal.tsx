@@ -1,19 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
+import { useTranslation } from 'react-i18next'
 import { IconClose, IconMic, IconUpload } from '../Icons'
 import { VoiceAvatar } from '../common/VoiceAvatar'
 import { apiSaveSampleAudio } from '../../api'
 import { onVoiceEncoding } from '../../api/events'
+import i18n from '../../i18n'
 import { useView } from '../../stores/view'
 import { useVoices } from '../../stores/voices'
 import { toast } from '../../stores/toast'
 
 interface CloneForm {
   name: string
-  gender: string
-  age: string
-  language: string
   /** emoji icon; '' = name-letter fallback */
   icon: string
   transcript: string
@@ -26,8 +25,6 @@ const ICON_CHOICES = [
   '⭐', '🔥', '🌈', '🎵', '🎙️', '🎧',
   '📢', '🎬', '🚀', '💡', '🌸', '🍀',
 ]
-
-const STEPS = ['定义人物', '上传样本', '确认与编码']
 
 /** Decode any browser-supported audio to mono f32 samples. */
 async function decodeToMono(blob: Blob): Promise<{ samples: number[]; sampleRate: number; duration: number }> {
@@ -51,6 +48,7 @@ async function decodeToMono(blob: Blob): Promise<{ samples: number[]; sampleRate
 }
 
 export function CloneModal() {
+  const { t } = useTranslation()
   const openState = useView((s) => s.cloneOpen)
   const setOpen = useView((s) => s.setCloneOpen)
   const editing = useView((s) => s.editingVoice)
@@ -59,14 +57,11 @@ export function CloneModal() {
   const [step, setStep] = useState(0)
   const [form, setForm] = useState<CloneForm>({
     name: '',
-    gender: '女',
-    age: '青年',
-    language: '中文',
     icon: '',
     transcript: '',
   })
   const [samplePath, setSamplePath] = useState<string | null>(null)
-  /** Display label (original mp3 name / "录音"), falls back to file name. */
+  /** Display label (original mp3 name / recording), falls back to file name. */
   const [sampleLabel, setSampleLabel] = useState<string | null>(null)
   const [sampleDuration, setSampleDuration] = useState<number | null>(null)
   const [encoding, setEncoding] = useState(false)
@@ -91,15 +86,12 @@ export function CloneModal() {
       if (editing) {
         setForm({
           name: editing.name,
-          gender: editing.gender,
-          age: editing.age === '—' ? '青年' : editing.age,
-          language: editing.language,
           icon: editing.icon ?? '',
           transcript: editing.transcript ?? '',
         })
         setSampleDuration(editing.sampleSeconds)
       } else {
-        setForm({ name: '', gender: '女', age: '青年', language: '中文', icon: '', transcript: '' })
+        setForm({ name: '', icon: '', transcript: '' })
         setSampleDuration(null)
       }
     }
@@ -134,7 +126,7 @@ export function CloneModal() {
       setSampleLabel(label)
       setSampleDuration(audio.duration)
     } catch (e) {
-      toast.error(`音频处理失败：${String(e)}`)
+      toast.error(i18n.t('clone.errAudio', { msg: String(e) }))
     } finally {
       setConverting(false)
     }
@@ -143,8 +135,8 @@ export function CloneModal() {
   const pickSample = async () => {
     const picked = await open({
       multiple: false,
-      title: '选择参考音频样本',
-      filters: [{ name: '音频文件', extensions: ['wav', 'mp3'] }],
+      title: t('clone.pickTitle'),
+      filters: [{ name: t('clone.audioFiles'), extensions: ['wav', 'mp3'] }],
     })
     if (!picked) return
     setSampleDuration(null)
@@ -169,7 +161,7 @@ export function CloneModal() {
         const res = await fetch(convertFileSrc(picked))
         await applyPcmSample(await res.blob(), fileName(picked))
       } catch {
-        toast.error('无法读取该 MP3 文件，请换一个文件或转换为 WAV')
+        toast.error(t('clone.errMp3'))
       }
     }
   }
@@ -183,13 +175,13 @@ export function CloneModal() {
         if (e.data.size > 0) chunks.push(e.data)
       }
       rec.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop())
+        stream.getTracks().forEach((tk) => tk.stop())
         if (timerRef.current) {
           clearInterval(timerRef.current)
           timerRef.current = null
         }
         setRecording(false)
-        void applyPcmSample(new Blob(chunks), '录音样本')
+        void applyPcmSample(new Blob(chunks), t('clone.recordSampleLabel'))
       }
       recorderRef.current = rec
       rec.start()
@@ -197,7 +189,7 @@ export function CloneModal() {
       setRecordSecs(0)
       timerRef.current = window.setInterval(() => setRecordSecs((s) => s + 1), 1000)
     } catch (e) {
-      toast.error(`无法访问麦克风：${String(e)}`)
+      toast.error(i18n.t('clone.errMic', { msg: String(e) }))
     }
   }
 
@@ -207,7 +199,7 @@ export function CloneModal() {
   }
 
   const sampleDisplay = sampleLabel
-    ?? (samplePath ? fileName(samplePath) : isEdit ? '当前参考样本（保持不变）' : '')
+    ?? (samplePath ? fileName(samplePath) : isEdit ? t('clone.currentSampleKeep') : '')
   /** edit mode without a newly picked sample keeps the existing reference */
   const keepExisting = isEdit && !samplePath
 
@@ -224,10 +216,6 @@ export function CloneModal() {
       const ok = await update({
         id: editing.id,
         name: form.name,
-        gender: form.gender,
-        age: form.age,
-        style: '',
-        language: form.language,
         icon: form.icon || null,
         transcript: form.transcript,
         samplePath,
@@ -238,13 +226,9 @@ export function CloneModal() {
     }
     if (!samplePath) return
     setEncoding(true)
-    setEncodeLog('准备编码器…')
+    setEncodeLog('')
     const ok = await create({
       name: form.name,
-      gender: form.gender,
-      age: form.age,
-      style: '',
-      language: form.language,
       icon: form.icon || null,
       samplePath,
       transcript: form.transcript,
@@ -255,16 +239,16 @@ export function CloneModal() {
 
   return (
     <div className="modal-overlay show" onClick={close}>
-      <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={isEdit ? '编辑声音' : '克隆新声音'}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={isEdit ? t('clone.titleEdit') : t('clone.titleNew')}>
         <div className="modal-header">
-          <div className="modal-title">{isEdit ? '编辑声音' : '克隆新声音'}</div>
-          <button className="modal-close" aria-label="关闭" onClick={close}>
+          <div className="modal-title">{isEdit ? t('clone.titleEdit') : t('clone.titleNew')}</div>
+          <button className="modal-close" aria-label={t('common.close')} onClick={close}>
             <IconClose />
           </button>
         </div>
 
         <div className="modal-steps">
-          {STEPS.map((label, i) => (
+          {[t('clone.stepDefine'), t('clone.stepUpload'), t('clone.stepConfirm')].map((label, i) => (
             <div key={label} style={{ display: 'contents' }}>
               {i > 0 && <div className="step-line" style={{ maxWidth: 40 }} />}
               <div className={`step-indicator ${i === step ? 'active' : i < step ? 'done' : ''}`}>
@@ -279,24 +263,24 @@ export function CloneModal() {
           {step === 0 && (
             <>
               <div className="form-group">
-                <label className="form-label">声音名称 *</label>
+                <label className="form-label">{t('clone.name')}</label>
                 <input
                   className="form-input"
-                  placeholder="例如：产品讲解员小雅"
+                  placeholder={t('clone.namePlaceholder')}
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">图标（可选）</label>
+                <label className="form-label">{t('clone.icon')}</label>
                 <div className="emoji-picker">
                   <button
                     type="button"
                     className={`emoji-choice ${form.icon === '' ? 'active' : ''}`}
-                    title="不选图标，使用名称首字"
+                    title={t('clone.iconNone')}
                     onClick={() => setForm((f) => ({ ...f, icon: '' }))}
                   >
-                    <VoiceAvatar name={form.name || '声'} size={26} />
+                    <VoiceAvatar name={form.name} size={26} />
                   </button>
                   {ICON_CHOICES.map((e) => (
                     <button
@@ -310,56 +294,17 @@ export function CloneModal() {
                   ))}
                 </div>
                 <div className="slider-hint" style={{ marginTop: 6 }}>
-                  不选则使用名称首字 + 随机颜色作为图标。
+                  {t('clone.iconHint')}
                 </div>
               </div>
-              <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-                <div>
-                  <label className="form-label">性别</label>
-                  <select
-                    className="form-input form-select"
-                    value={form.gender}
-                    onChange={(e) => setForm((f) => ({ ...f, gender: e.target.value }))}
-                  >
-                    <option>女</option>
-                    <option>男</option>
-                    <option>中性</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label">年龄</label>
-                  <select
-                    className="form-input form-select"
-                    value={form.age}
-                    onChange={(e) => setForm((f) => ({ ...f, age: e.target.value }))}
-                  >
-                    <option>少年</option>
-                    <option>青年</option>
-                    <option>中年</option>
-                    <option>老年</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label">语言</label>
-                  <select
-                    className="form-input form-select"
-                    value={form.language}
-                    onChange={(e) => setForm((f) => ({ ...f, language: e.target.value }))}
-                  >
-                    <option>中文</option>
-                    <option>英文</option>
-                    <option>中英混合</option>
-                  </select>
-                </div>
-              </div>
-              <div className="slider-hint">zero-shot 克隆无需训练，仅需一段参考音频。</div>
+              <div className="slider-hint">{t('clone.zeroShotHint')}</div>
             </>
           )}
 
           {step === 1 && (
             <>
               <div className="form-group">
-                <label className="form-label">参考音频 *</label>
+                <label className="form-label">{t('clone.refAudio')}</label>
 
                 {recording ? (
                   <div className="upload-zone" style={{ cursor: 'default' }}>
@@ -377,16 +322,16 @@ export function CloneModal() {
                           animation: 'fadeIn 1s infinite alternate',
                         }}
                       />
-                      录音中 {fmtSecs(recordSecs)}
+                      {t('clone.recording', { time: fmtSecs(recordSecs) })}
                     </div>
-                    <div className="upload-zone-hint">请朗读 5–10 秒清晰的单人语音</div>
+                    <div className="upload-zone-hint">{t('clone.recordHint')}</div>
                     <button className="btn-primary" style={{ marginTop: 14 }} onClick={stopRecording}>
-                      停止录音
+                      {t('clone.stopRecording')}
                     </button>
                   </div>
                 ) : converting ? (
                   <div className="upload-zone" style={{ cursor: 'default' }}>
-                    <div className="upload-zone-text">正在处理音频…</div>
+                    <div className="upload-zone-text">{t('clone.processing')}</div>
                   </div>
                 ) : samplePath ? (
                   <div
@@ -399,10 +344,10 @@ export function CloneModal() {
                     <div className="upload-zone-text">{sampleDisplay}</div>
                     <div className="upload-zone-hint">
                       {converting
-                        ? '正在处理音频…'
+                        ? t('clone.processing')
                         : sampleDuration != null
-                          ? `时长 ${sampleDuration.toFixed(1)} 秒 · 点击重新选择`
-                          : '点击重新选择'}
+                          ? `${t('clone.durationSec', { sec: sampleDuration.toFixed(1) })} · ${t('clone.repick')}`
+                          : t('clone.repick')}
                     </div>
                     {!busy && (
                       <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12 }}>
@@ -413,7 +358,7 @@ export function CloneModal() {
                             void startRecording()
                           }}
                         >
-                          重新录音
+                          {t('clone.rerecord')}
                         </button>
                         {isEdit && (
                           <button
@@ -425,7 +370,7 @@ export function CloneModal() {
                               setSampleDuration(editing.sampleSeconds)
                             }}
                           >
-                            移除新样本，保留原样本
+                            {t('clone.removeNewSample')}
                           </button>
                         )}
                       </div>
@@ -437,23 +382,23 @@ export function CloneModal() {
                       <div className="upload-zone-icon">
                         <IconUpload width={26} height={26} />
                       </div>
-                      <div className="upload-zone-text">当前参考样本</div>
+                      <div className="upload-zone-text">{t('clone.currentSample')}</div>
                       <div className="upload-zone-hint">
-                        {sampleDuration != null ? `时长 ${sampleDuration.toFixed(1)} 秒` : ''}
-                        保存时保持不变
+                        {sampleDuration != null ? `${t('clone.durationSec', { sec: sampleDuration.toFixed(1) })} · ` : ''}
+                        {t('clone.keepUnchanged')}
                       </div>
                     </div>
                     <div className="upload-zone" onClick={() => void pickSample()}>
                       <div className="upload-zone-icon">
                         <IconUpload width={20} height={20} />
                       </div>
-                      <div className="upload-zone-text">上传新音频替换</div>
+                      <div className="upload-zone-text">{t('clone.uploadNew')}</div>
                     </div>
                     <div className="upload-zone" onClick={() => void startRecording()}>
                       <div className="upload-zone-icon">
                         <IconMic width={20} height={20} />
                       </div>
-                      <div className="upload-zone-text">重新录音替换</div>
+                      <div className="upload-zone-text">{t('clone.rerecordReplace')}</div>
                     </div>
                   </div>
                 ) : (
@@ -462,23 +407,23 @@ export function CloneModal() {
                       <div className="upload-zone-icon">
                         <IconUpload width={26} height={26} />
                       </div>
-                      <div className="upload-zone-text">上传音频文件</div>
+                      <div className="upload-zone-text">{t('clone.uploadFile')}</div>
                       <div className="upload-zone-hint">
-                        支持 WAV / MP3 · 建议 5–10 秒清晰单人语音（会自动重采样到 44.1kHz）
+                        {t('clone.uploadHint')}
                       </div>
                     </div>
                     <div className="upload-zone" onClick={() => void startRecording()}>
                       <div className="upload-zone-icon">
                         <IconMic width={26} height={26} />
                       </div>
-                      <div className="upload-zone-text">直接录音</div>
-                      <div className="upload-zone-hint">使用麦克风现场录制参考样本</div>
+                      <div className="upload-zone-text">{t('clone.recordNow')}</div>
+                      <div className="upload-zone-hint">{t('clone.recordNowHint')}</div>
                     </div>
                   </div>
                 )}
               </div>
               <div className="slider-hint">
-                参考音频会被编码为音色 token 缓存，之后每次生成直接复用，无需重新编码。
+                {t('clone.cacheHint')}
               </div>
             </>
           )}
@@ -486,11 +431,11 @@ export function CloneModal() {
           {step === 2 && (
             <>
               <div className="form-group">
-                <label className="form-label">样本转写 *</label>
+                <label className="form-label">{t('clone.transcript')}</label>
                 <textarea
                   className="form-input"
                   style={{ resize: 'vertical', minHeight: 96, lineHeight: 1.7 }}
-                  placeholder="逐字写下参考音频里说的话（与音频内容一致可以提升克隆相似度）"
+                  placeholder={t('clone.transcriptPlaceholder')}
                   value={form.transcript}
                   onChange={(e) => setForm((f) => ({ ...f, transcript: e.target.value }))}
                   disabled={encoding}
@@ -506,9 +451,7 @@ export function CloneModal() {
                 <div className="dl-progress">
                   <div className="dl-file-label">
                     <span>
-                      {keepExisting
-                        ? '正在保存修改…'
-                        : '正在编码参考音频（zero-shot，无训练）'}
+                      {keepExisting ? t('clone.savingChanges') : t('clone.encodingRef')}
                     </span>
                   </div>
                   {!keepExisting && (
@@ -528,16 +471,16 @@ export function CloneModal() {
         <div className="modal-footer">
           {step > 0 && !busy && (
             <button className="btn-secondary" onClick={() => setStep((s) => s - 1)}>
-              上一步
+              {t('clone.prev')}
             </button>
           )}
           {step < 2 ? (
             <button className="btn-primary" disabled={!canNext} onClick={() => setStep((s) => s + 1)}>
-              下一步
+              {t('clone.next')}
             </button>
           ) : (
             <button className="btn-primary" disabled={!canNext || encoding} onClick={() => void submit()}>
-              {encoding ? (keepExisting ? '保存中…' : '编码中…') : isEdit ? '保存修改' : '开始编码'}
+              {encoding ? (keepExisting ? t('clone.saving') : t('clone.encoding')) : isEdit ? t('clone.save') : t('clone.start')}
             </button>
           )}
         </div>

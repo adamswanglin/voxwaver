@@ -1,0 +1,14 @@
+{
+  "genBusy": "Er is al een generatie bezig",
+  "emptyText": "De tekst mag niet leeg zijn",
+  "missingFiles": "Ontbrekende bestanden in de gekozen map: %{files}",
+  "dlBusy": "Er is al een download bezig",
+  "msMirror": "%{model} heeft geen ModelScope-mirror; gebruik de HuggingFace-bron",
+  "dlFileFail": "Downloaden van %{file} mislukt: HTTP %{status}",
+  "audioMissing": "Audiobestand niet gevonden",
+  "nameEmpty": "De stemnaam mag niet leeg zijn",
+  "transcriptEmpty": "Geef de transcriptie van het voorbeeld op",
+  "sampleMissing": "Voorbeeldbestand niet gevonden",
+  "voiceNotFound": "Stem niet gevonden",
+  "emptyRecording": "Opnamedata is leeg"
+}

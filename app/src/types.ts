@@ -4,17 +4,16 @@ export interface Settings {
   device: string // auto | cpu | metal | cuda
   model: string // active engine
   modelDirs: Record<string, string> // model id -> directory
+  /** UI language (zh | en | ja | ...) */
   language: string
+  /** TTS output language tag ('' = auto: not passed to the model) */
+  outputLanguage: string
   seed: number
 }
 
 export interface VoiceView {
   id: string
   name: string
-  gender: string
-  age: string
-  style: string
-  language: string
   tags: string[]
   /** optional emoji icon; null = name-letter fallback */
   icon: string | null
