@@ -7,7 +7,7 @@ use std::time::Instant;
 use tts_common::{CancelFlag, Progress, ProgressSink};
 
 use omnivoice::config as cfg;
-use omnivoice::engine::Engine;
+use omnivoice::engine::{Engine, SpeakOptions};
 use omnivoice::generator::GenParams;
 
 /// CLI sink: logs to stderr with an `[omnivoice]` prefix.
@@ -85,6 +85,18 @@ struct Cli {
     /// Transcript of the reference audio (optional; helps cloning fidelity).
     #[arg(long)]
     ref_text: Option<String>,
+    /// Speaking speed; >1 faster, <1 slower.
+    #[arg(long, default_value_t = 1.0)]
+    speed: f64,
+    /// Target chunk duration (seconds) for long text; 0 disables chunking.
+    #[arg(long, default_value_t = cfg::AUDIO_CHUNK_DURATION)]
+    audio_chunk_duration: f64,
+    /// Estimated audio duration (seconds) above which chunking is activated.
+    #[arg(long, default_value_t = cfg::AUDIO_CHUNK_THRESHOLD)]
+    audio_chunk_threshold: f64,
+    /// Skip output post-processing (silence removal / normalization / fades).
+    #[arg(long)]
+    no_postprocess: bool,
 }
 
 fn main() -> Result<()> {
@@ -107,16 +119,24 @@ fn main() -> Result<()> {
         None => None,
     };
     let started = Instant::now();
-    let ref_codes = match &ref_audio {
+    let (ref_codes, ref_rms) = match &ref_audio {
         Some((wav, sr)) => {
             let codes = engine.encode_ref(wav, *sr)?;
             eprintln!(
                 "[omnivoice] reference audio encoded to 8 x {} tokens",
                 codes[0].len()
             );
-            Some(codes)
+            (Some(codes), Some(omnivoice::engine::ref_rms(wav, *sr)))
         }
-        None => None,
+        None => (None, None),
+    };
+    let opts = SpeakOptions {
+        speed: cli.speed,
+        audio_chunk_duration: cli.audio_chunk_duration,
+        audio_chunk_threshold: cli.audio_chunk_threshold,
+        postprocess_output: !cli.no_postprocess,
+        ref_rms,
+        ..Default::default()
     };
     let wave = engine.tts_with(
         &cli.text,
@@ -126,6 +146,7 @@ fn main() -> Result<()> {
         &params,
         ref_codes.as_deref(),
         cli.ref_text.as_deref(),
+        &opts,
         &CancelFlag::new(),
         &CliSink,
     )?;

@@ -15,6 +15,9 @@ serde_json = "1"
 fancy-regex = "0.13"
 unicode-normalization = "0.1"
 tts-common = { path = "../tts-common" }
+# dlopen probe for the CUDA stack (src/cuda_probe.rs); the version tracks
+# cudarc's own libloading so only one copy is compiled into CUDA builds.
+libloading = { version = "0.9", optional = true }
 
 # Candle fork: Metal large-buffer pooling fix
 # (huggingface/candle#4012) + direct Metal conv1d kernel + multi-block argsort.
@@ -23,7 +26,7 @@ candle-nn = { git = "https://github.com/adamswanglin/candle.git", branch = "voxw
 
 [features]
 default = []
-cuda = ["candle-core/cuda", "candle-nn/cuda"]
+cuda = ["candle-core/cuda", "candle-nn/cuda", "dep:libloading"]
 cudnn = ["cuda", "candle-core/cudnn", "candle-nn/cudnn"]
 metal = ["candle-core/metal", "candle-nn/metal"]
 accelerate = ["candle-core/accelerate", "candle-nn/accelerate"]

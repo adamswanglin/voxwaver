@@ -12,19 +12,17 @@ export interface GenSegment {
   key: 'load' | 'encode' | 'gen' | 'decode' | 'write'
   label: string
   color: string
-  /** relative width within the bar (all weights sum to 1) */
-  weight: number
   /** fill of this segment, 0..1 */
   fraction: number
 }
 
-/** Pipeline phases in bar order; weights sum to 1. */
+/** Pipeline phases in bar order; every segment renders equal width. */
 const SEGMENT_DEFS: Omit<GenSegment, 'fraction'>[] = [
-  { key: 'load', label: '加载模型', color: '#8b5cf6', weight: 0.05 },
-  { key: 'encode', label: '编码参考', color: '#06b6d4', weight: 0.05 },
-  { key: 'gen', label: '生成语音', color: '#1b61c9', weight: 0.68 },
-  { key: 'decode', label: '音频解码', color: '#f59e0b', weight: 0.17 },
-  { key: 'write', label: '写入文件', color: '#10b981', weight: 0.05 },
+  { key: 'load', label: '加载模型', color: '#8b5cf6' },
+  { key: 'encode', label: '编码参考', color: '#06b6d4' },
+  { key: 'gen', label: '生成语音', color: '#1b61c9' },
+  { key: 'decode', label: '音频解码', color: '#f59e0b' },
+  { key: 'write', label: '写入文件', color: '#10b981' },
 ]
 
 /** Which segment each progress event belongs to. */
@@ -90,16 +88,11 @@ function applyToSegments(segs: GenSegment[], p: GenProgress): GenSegment[] {
   }))
 }
 
-const overallFraction = (segs: GenSegment[]): number =>
-  segs.reduce((acc, s) => acc + s.weight * s.fraction, 0)
-
 export interface GenState {
   running: boolean
   /** cancel requested; waiting for the backend loop to notice */
   cancelling: boolean
-  /** 0..1 across the whole pipeline */
-  fraction: number
-  /** colored per-phase segments of the total progress bar */
+  /** colored per-phase segments of the progress bar */
   segments: GenSegment[]
   stageText: string
   subText: string
@@ -116,7 +109,7 @@ function wireEvents() {
   wired = true
   onGenProgress((p) => {
     const segments = applyToSegments(useGeneration.getState().segments, p)
-    const patch: Partial<GenState> = { segments, fraction: overallFraction(segments) }
+    const patch: Partial<GenState> = { segments }
     Object.assign(patch, stageText(p))
     useGeneration.setState(patch)
   })
@@ -128,7 +121,6 @@ function wireEvents() {
       useGeneration.setState({
         running: false,
         cancelling: false,
-        fraction: 0,
         segments: freshSegments(),
         stageText: '',
         subText: '',
@@ -178,7 +170,6 @@ function stageText(p: GenProgress): Partial<GenState> {
 export const useGeneration = create<GenerationStore>((set) => ({
   running: false,
   cancelling: false,
-  fraction: 0,
   segments: freshSegments(),
   stageText: '',
   subText: '',
@@ -188,23 +179,21 @@ export const useGeneration = create<GenerationStore>((set) => ({
     set({
       running: true,
       cancelling: false,
-      fraction: 0,
       segments: freshSegments(),
       stageText: '准备中…',
       subText: '',
     })
     try {
       const entry = await apiGenerate(req)
-      set({ running: false, cancelling: false, fraction: 1, stageText: '', subText: '' })
-      toast.success('语音生成完成')
+      set({ running: false, cancelling: false, stageText: '', subText: '' })
       await useHistory.getState().load()
-      usePlayer.getState().play(entry)
+      // 只载入不自动播放；底部播放条显示「生成完成」提示
+      usePlayer.getState().load(entry)
       return true
     } catch (e) {
       set({
         running: false,
         cancelling: false,
-        fraction: 0,
         segments: freshSegments(),
         stageText: '',
         subText: '',

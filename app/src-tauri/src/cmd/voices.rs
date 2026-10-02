@@ -29,6 +29,8 @@ pub struct VoiceView {
     pub style: String,
     pub language: String,
     pub tags: Vec<String>,
+    /// optional emoji icon (null = name-letter fallback on the frontend)
+    pub icon: Option<String>,
     pub created_at: i64,
     /// built-in (default timbre) or cloned
     pub is_clone: bool,
@@ -40,6 +42,12 @@ pub struct VoiceView {
     pub sample_seconds: Option<f64>,
 }
 
+/// Trim a client-supplied icon; blank/absent means "no icon".
+fn clean_icon(icon: Option<&str>) -> Option<String> {
+    let icon = icon?.trim();
+    (!icon.is_empty()).then(|| icon.to_string())
+}
+
 fn default_voice() -> VoiceView {
     VoiceView {
         id: "default".into(),
@@ -49,6 +57,7 @@ fn default_voice() -> VoiceView {
         style: "zero-shot 默认音色（无参考音频）".into(),
         language: "多语言".into(),
         tags: vec!["预置".into()],
+        icon: None,
         created_at: 0,
         is_clone: false,
         ref_wav: None,
@@ -73,6 +82,7 @@ impl Voice {
             style: self.style,
             language: self.language,
             tags: self.tags,
+            icon: self.icon,
             created_at: self.created_at,
         }
     }
@@ -95,6 +105,7 @@ pub fn list_voices(app: AppHandle) -> Vec<VoiceView> {
             style: v.style,
             language: v.language,
             tags: v.tags,
+            icon: v.icon,
             created_at: v.created_at,
             is_clone: true,
             ref_wav,
@@ -113,6 +124,9 @@ pub struct CreateVoiceReq {
     pub age: String,
     pub style: String,
     pub language: String,
+    /// optional emoji icon; empty string = none
+    #[serde(default)]
+    pub icon: Option<String>,
     /// absolute path to the sample WAV (chosen via dialog on the frontend)
     pub sample_path: String,
     pub transcript: String,
@@ -141,7 +155,7 @@ fn encode_ref_into(
         let state: State<'_, AppState> = app.state();
         // engine must exist (it encodes the reference)
         crate::cmd::tts::ensure_engine(&state, &sink)?;
-        let codes = {
+        let (codes, _) = {
             let mut eng = state.engine.lock().unwrap();
             let eng = eng.as_mut().expect("engine ensured above");
             eng.encode_reference(sample, &sink)?
@@ -153,11 +167,15 @@ fn encode_ref_into(
         let (samples, sr) = wavio::read_wav_mono(sample)?;
         let samples = wavio::resample(&samples, sr, rate);
         wavio::write_wav(&dir.join("ref.wav"), &samples, rate, true)?;
+        let rms = (samples.iter().map(|&s| (s as f64) * (s as f64)).sum::<f64>()
+            / samples.len().max(1) as f64)
+            .sqrt();
         store::write_json(
             &dir.join(ref_cache_file()),
             &RefFile {
                 transcript: transcript.to_string(),
                 codes,
+                rms: Some(rms),
             },
         )?;
         Ok(samples.len() as f64 / rate as f64)
@@ -196,6 +214,7 @@ pub async fn create_voice(
             age: req.age,
             style: req.style,
             language: req.language,
+            icon: clean_icon(req.icon.as_deref()),
             tags: vec!["克隆".into()],
             created_at: now_ms(),
             sample_seconds: secs,
@@ -219,6 +238,9 @@ pub struct UpdateVoiceReq {
     pub age: String,
     pub style: String,
     pub language: String,
+    /// optional emoji icon; empty string = clear (name-letter fallback)
+    #[serde(default)]
+    pub icon: Option<String>,
     pub transcript: String,
     /// new reference sample; absent = keep the existing one (transcript only)
     pub sample_path: Option<String>,
@@ -265,6 +287,7 @@ pub async fn update_voice(
         voice.age = req.age;
         voice.style = req.style;
         voice.language = req.language;
+        voice.icon = clean_icon(req.icon.as_deref());
         let dir = ctx.dirs().voice_dir(&req.id);
         if let Some(sample) = &sample {
             voice.sample_seconds =

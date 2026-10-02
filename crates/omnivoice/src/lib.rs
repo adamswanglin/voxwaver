@@ -19,8 +19,12 @@ pub mod generator;
 pub mod hubert;
 pub mod qwen3;
 pub mod resample;
+pub mod text;
 pub mod tokenizer;
 pub mod wavio;
+
+#[cfg(feature = "cuda")]
+mod cuda_probe;
 
 /// Bias-free linear layer: `x @ w.T`. The fork's matmul requires equal ranks
 /// (no `(b, m, k) @ (k, n)` broadcast): flatten all leading dims into the
@@ -46,75 +50,29 @@ pub(crate) fn linear(
     Ok(y.broadcast_add(&b.reshape((c,))?)?)
 }
 
-/// Split `text` into chunks whose estimated duration is at most `max_frames`
-/// each, preferring sentence boundaries; the duration estimator's char
-/// weights make CJK and Latin text pack to comparable audio lengths.
-pub fn split_chunks(text: &str, max_frames: f64) -> Vec<String> {
-    if text.is_empty() {
-        return Vec::new();
+/// Create the CUDA device at ordinal 0, or an error explaining why not.
+///
+/// cudarc (built with `dynamic-loading`) dlopens the CUDA libraries on first
+/// use and panics when one is missing, so a bare `Device::new_cuda` would
+/// abort the process on machines without a CUDA stack. The dlopen pre-probe
+/// in `cuda_probe` catches that case; `catch_unwind` covers the gap between
+/// "library loads" and "device initializes" (a missing symbol, no driver,
+/// no device). Call this instead of `Device::new_cuda` in cuda builds.
+#[cfg(feature = "cuda")]
+pub fn try_new_cuda() -> anyhow::Result<candle_core::Device> {
+    if let Some(missing) = cuda_probe::cuda_stack_missing() {
+        anyhow::bail!("CUDA libraries not loadable: {missing}");
     }
-    if max_frames <= 0.0 {
-        return vec![text.to_string()];
-    }
-    let max_weight = max_frames * duration::total_weight(config::DURATION_REF_TEXT)
-        / config::DURATION_REF_FRAMES;
-
-    // Sentence boundaries.
-    let mut sentences: Vec<String> = Vec::new();
-    let mut cur = String::new();
-    for ch in text.chars() {
-        cur.push(ch);
-        if matches!(
-            ch,
-            '。' | '！' | '？' | '；' | '\n' | '.' | '!' | '?' | ';' | ':'
-        ) {
-            sentences.push(std::mem::take(&mut cur));
-        }
-    }
-    if !cur.is_empty() {
-        sentences.push(cur);
-    }
-
-    // Hard-split overlong sentences on char boundaries.
-    let mut pieces: Vec<(String, f64)> = Vec::new();
-    for s in sentences {
-        let ws = duration::total_weight(&s);
-        if ws <= max_weight {
-            pieces.push((s, ws));
-            continue;
-        }
-        let mut cur = String::new();
-        let mut w = 0.0;
-        for ch in s.chars() {
-            let cw = duration::char_weight(ch);
-            if !cur.is_empty() && w + cw > max_weight {
-                pieces.push((std::mem::take(&mut cur), w));
-                w = 0.0;
-            }
-            cur.push(ch);
-            w += cw;
-        }
-        if !cur.is_empty() {
-            pieces.push((cur, w));
-        }
-    }
-
-    // Greedy packing.
-    let mut chunks: Vec<String> = Vec::new();
-    let mut cur = String::new();
-    let mut w = 0.0;
-    for (piece, pw) in pieces {
-        if !cur.is_empty() && w + pw > max_weight {
-            chunks.push(std::mem::take(&mut cur));
-            w = 0.0;
-        }
-        cur.push_str(&piece);
-        w += pw;
-    }
-    if !cur.is_empty() {
-        chunks.push(cur);
-    }
-    chunks
+    let created =
+        std::panic::catch_unwind(|| candle_core::Device::new_cuda(0)).map_err(|payload| {
+            let msg = payload
+                .downcast_ref::<&str>()
+                .map(|s| (*s).to_string())
+                .or_else(|| payload.downcast_ref::<String>().cloned())
+                .unwrap_or_else(|| "unknown panic".into());
+            anyhow::anyhow!("CUDA init failed: {msg}")
+        })?;
+    created.map_err(|e| anyhow::anyhow!("CUDA device unavailable: {e}"))
 }
 
 /// Backend device selection: metal/cuda feature builds pick the accelerator
@@ -131,7 +89,7 @@ pub fn default_device(force_cpu: bool) -> anyhow::Result<candle_core::Device> {
     }
     #[cfg(feature = "cuda")]
     {
-        return Ok(Device::new_cuda(0)?);
+        return try_new_cuda();
     }
     #[allow(unreachable_code)]
     Ok(Device::Cpu)
@@ -142,7 +100,10 @@ pub fn select_device(sel: &str) -> anyhow::Result<candle_core::Device> {
     use candle_core::Device;
     match sel {
         "cpu" => Ok(Device::Cpu),
-        "cuda" => Device::new_cuda(0).map_err(|e| anyhow::anyhow!("CUDA device requested but unavailable: {e}")),
+        #[cfg(feature = "cuda")]
+        "cuda" => try_new_cuda(),
+        #[cfg(not(feature = "cuda"))]
+        "cuda" => anyhow::bail!("CUDA support not compiled in"),
         "metal" => Device::new_metal(0).map_err(|e| anyhow::anyhow!("Metal device requested but unavailable: {e}")),
         "auto" => {
             #[cfg(feature = "metal")]
@@ -153,61 +114,12 @@ pub fn select_device(sel: &str) -> anyhow::Result<candle_core::Device> {
             }
             #[cfg(feature = "cuda")]
             {
-                if let Ok(d) = Device::new_cuda(0) {
+                if let Ok(d) = try_new_cuda() {
                     return Ok(d);
                 }
             }
             Ok(Device::Cpu)
         }
         other => anyhow::bail!("unknown device {other:?} (cpu|cuda|metal|auto)"),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// 15 s budget (375 frames ≈ 211 weight units ≈ 70 CJK chars).
-    const BUDGET: f64 = 375.0;
-
-    fn frames(text: &str) -> f64 {
-        duration::estimate_duration_frames(text)
-    }
-
-    #[test]
-    fn short_text_stays_in_one_chunk() {
-        assert_eq!(split_chunks("你好，世界。", BUDGET), vec!["你好，世界。"]);
-        assert!(split_chunks("", BUDGET).is_empty());
-    }
-
-    #[test]
-    fn long_text_splits_on_sentence_boundaries() {
-        let text = "这是一句用来测试自动切分的完整句子。".repeat(12);
-        let chunks = split_chunks(&text, BUDGET);
-        assert!(chunks.len() > 1);
-        for c in &chunks {
-            assert!(c.ends_with('。'), "chunk does not end on a boundary: {c}");
-            assert!(frames(c) <= BUDGET + 1e-6, "chunk over budget: {c}");
-        }
-        assert_eq!(chunks.concat(), text);
-    }
-
-    #[test]
-    fn overlong_sentence_is_hard_split() {
-        let text = "词".repeat(300);
-        let chunks = split_chunks(&text, BUDGET);
-        assert!(chunks.len() >= 3);
-        assert!(chunks.iter().all(|c| frames(c) <= BUDGET + 1e-6));
-        assert_eq!(chunks.concat(), text);
-    }
-
-    #[test]
-    fn latin_packs_more_chars_than_cjk() {
-        let text = "This is a sentence for testing. ".repeat(20);
-        let chunks = split_chunks(&text, BUDGET);
-        let cjk = split_chunks(&"词".repeat(300), BUDGET);
-        assert!(chunks.len() > 1);
-        assert!(chunks[0].chars().count() > cjk[0].chars().count() * 2);
-        assert_eq!(chunks.concat(), text);
     }
 }

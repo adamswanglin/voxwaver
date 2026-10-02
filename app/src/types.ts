@@ -5,8 +5,6 @@ export interface Settings {
   model: string // active engine
   modelDirs: Record<string, string> // model id -> directory
   language: string
-  /** OmniVoice class temperature; 0 = greedy (upstream CLI default) */
-  omniTemperature: number
   seed: number
 }
 
@@ -18,6 +16,8 @@ export interface VoiceView {
   style: string
   language: string
   tags: string[]
+  /** optional emoji icon; null = name-letter fallback */
+  icon: string | null
   createdAt: number
   isClone: boolean
   refWav: string | null
@@ -106,4 +106,45 @@ export interface GenerateReq {
   /** OmniVoice style instruction */
   instruct: string | null
   seed: number
+  /** Generation-parameter overrides; `null` fields keep the engine defaults
+   *  (mirrors the backend's GenOverrides). */
+  overrides: GenOverrides
+}
+
+/** Per-request generation overrides (mirror of the official
+ *  OmniVoiceGenerationConfig). `null` = engine default. */
+export interface GenOverrides {
+  // Duration & speed
+  /** Speaking-speed factor; > 1 produces shorter (faster) audio */
+  speed: number | null
+  /** Fixed output duration in seconds; overrides speed when set */
+  duration: number | null
+  // Decoding
+  /** Number of iterative unmasking steps */
+  numStep: number | null
+  /** Classifier-free guidance scale */
+  guidanceScale: number | null
+  /** Time-step shift for the noise schedule */
+  tShift: number | null
+  /** Prepend the <|denoise|> tag */
+  denoise: boolean | null
+  // Sampling
+  /** Temperature for mask-position selection; 0 = greedy */
+  positionTemperature: number | null
+  /** Temperature for token sampling; 0 = greedy */
+  classTemperature: number | null
+  /** Penalty applied to deeper codebook layers */
+  layerPenaltyFactor: number | null
+  // Pre/post processing
+  /** Remove long silences from the output */
+  postprocessOutput: boolean | null
+  /** Silence padding per side (seconds) */
+  padDuration: number | null
+  /** Fade-in/out duration (seconds) */
+  fadeDuration: number | null
+  // Long-form generation
+  /** Target chunk duration (seconds) */
+  audioChunkDuration: number | null
+  /** Estimated duration (seconds) above which chunking activates */
+  audioChunkThreshold: number | null
 }

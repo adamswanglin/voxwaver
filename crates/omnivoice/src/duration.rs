@@ -169,12 +169,6 @@ fn calculate_total_weight(text: &str) -> f64 {
     text.chars().map(char_weight).sum()
 }
 
-/// Total phonetic weight of `text` — the estimator's raw measure before the
-/// frame conversion (used for chunk packing).
-pub fn total_weight(text: &str) -> f64 {
-    calculate_total_weight(text)
-}
-
 /// Estimated duration (in frames, matching the reference duration's unit) of
 /// `target_text`, calibrated on (`ref_text`, `ref_duration`).
 ///
@@ -207,14 +201,72 @@ pub fn estimate_duration(
     }
 }
 
-/// Pipeline defaults: `estimate_duration(text, "Nice to meet you.", 25)` with
-/// `low_threshold=50`, `boost_strength=3`.
-pub fn estimate_duration_frames(target_text: &str) -> f64 {
-    estimate_duration(
-        target_text,
-        crate::config::DURATION_REF_TEXT,
-        crate::config::DURATION_REF_FRAMES,
-        50.0,
-        3.0,
-    )
+/// Estimated number of target audio tokens (frames) for `target_text`
+/// (port of `_estimate_target_tokens`): calibrated on the voice-clone
+/// reference (`ref_text` + its token count) when available, else the fixed
+/// `("Nice to meet you.", 25 frames)` pair; divided by `speed` when it is
+/// positive and not 1; at least 1.
+pub fn estimate_target_tokens(
+    target_text: &str,
+    ref_text: Option<&str>,
+    num_ref_tokens: Option<usize>,
+    speed: f64,
+) -> usize {
+    let (ref_text, ref_duration) = match (ref_text, num_ref_tokens) {
+        (Some(rt), Some(n)) if !rt.is_empty() && n > 0 => (rt, n as f64),
+        _ => (
+            crate::config::DURATION_REF_TEXT,
+            crate::config::DURATION_REF_FRAMES,
+        ),
+    };
+    let mut est = estimate_duration(target_text, ref_text, ref_duration, 50.0, 3.0);
+    if speed > 0.0 && speed != 1.0 {
+        est /= speed;
+    }
+    est.max(1.0) as usize
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn falls_back_to_default_calibration() {
+        // No reference: same result as the old fixed-calibration helper
+        // (floored, minimum 1).
+        let via_ref = estimate_target_tokens("你好，世界。", None, None, 1.0);
+        assert_eq!(
+            via_ref,
+            estimate_duration(
+                "你好，世界。",
+                crate::config::DURATION_REF_TEXT,
+                crate::config::DURATION_REF_FRAMES,
+                50.0,
+                3.0
+            )
+            .floor()
+            .max(1.0) as usize
+        );
+    }
+
+    #[test]
+    fn calibrates_on_ref() {
+        // A reference that takes 4x longer per char scales the estimate
+        // proportionally in the linear regime (est above the 50-frame boost).
+        let text = "This is a fairly long sentence used for calibration. ".repeat(5);
+        let plain = estimate_target_tokens(&text, None, None, 1.0);
+        let slow = estimate_target_tokens(&text, Some("Nice to meet you."), Some(100), 1.0);
+        assert!(plain > 100, "est must be in the linear regime (got {plain})");
+        assert!(
+            (slow as i64 - 4 * plain as i64).abs() <= 4,
+            "expected ~4x, got {plain} -> {slow}"
+        );
+    }
+
+    #[test]
+    fn speed_divides() {
+        let one = estimate_target_tokens("这是一句用来测试语速的句子。", None, None, 1.0);
+        let fast = estimate_target_tokens("这是一句用来测试语速的句子。", None, None, 2.0);
+        assert_eq!(fast, (one as f64 / 2.0).floor().max(1.0) as usize);
+    }
 }

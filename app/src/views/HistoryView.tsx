@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { open } from '@tauri-apps/plugin-dialog'
 import { apiRevealAudio } from '../api'
-import { IconFolder, IconPause, IconPlay, IconTrash } from '../components/Icons'
+import { IconCopy, IconFolder, IconPause, IconPlay, IconTrash } from '../components/Icons'
 import { formatBytes, formatDate, formatDuration, isThisWeek, isToday } from '../lib/format'
 import { useHistory } from '../stores/history'
 import { usePlayer } from '../stores/player'
@@ -167,6 +167,19 @@ function HistoryRow({
       <span className="table-duration">{formatDuration(entry.durationSec)}</span>
       <span className="table-duration">{formatBytes(entry.fileSize)}</span>
       <span className="table-actions">
+        <button
+          className="table-action-btn"
+          aria-label="复制文本"
+          title="复制文本"
+          onClick={() => {
+            navigator.clipboard
+              .writeText(entry.text)
+              .then(() => toast.success('已复制文本'))
+              .catch((e) => toast.error(String(e)))
+          }}
+        >
+          <IconCopy />
+        </button>
         <button
           className="table-action-btn"
           aria-label="在文件夹中显示"

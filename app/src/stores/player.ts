@@ -9,9 +9,13 @@ interface PlayerStore {
   playing: boolean
   position: number // seconds
   duration: number
+  /** 生成完成、尚未播放的提示标记；开始播放后清除 */
+  doneNotice: boolean
   /** 0..1 playhead */
   seek: (fraction: number) => void
   play: (entry: HistoryEntry) => void
+  /** 载入条目但不自动播放（生成完成后调用） */
+  load: (entry: HistoryEntry) => void
   playPause: () => void
   skip: (deltaSec: number) => void
 }
@@ -38,7 +42,7 @@ function ensureAudio(): HTMLAudioElement {
     console.error('audio error', kind, a.error?.message, a.src)
     toast.error(`音频加载失败（${kind}）：${a.error?.message ?? a.src}`)
   })
-  audio.addEventListener('play', () => usePlayer.setState({ playing: true }))
+  audio.addEventListener('play', () => usePlayer.setState({ playing: true, doneNotice: false }))
   audio.addEventListener('pause', () => usePlayer.setState({ playing: false }))
   wired = true
   return audio
@@ -59,7 +63,7 @@ function reportPlayError(e: unknown) {
   toast.error(`播放失败：${(e as DOMException)?.name ?? ''} ${(e as DOMException)?.message ?? e}`)
 }
 
-async function startEntry(a: HTMLAudioElement, entry: HistoryEntry) {
+async function startEntry(a: HTMLAudioElement, entry: HistoryEntry, autoplay: boolean) {
   try {
     const url = await mediaObjectUrl(entry.wavAbs)
     if (usePlayer.getState().entry?.id !== entry.id) return // switched away while loading
@@ -70,7 +74,7 @@ async function startEntry(a: HTMLAudioElement, entry: HistoryEntry) {
     toast.error(`音频加载失败：${e}`)
     return
   }
-  a.play().catch(reportPlayError)
+  if (autoplay) a.play().catch(reportPlayError)
 }
 
 export const usePlayer = create<PlayerStore>((set, get) => ({
@@ -78,14 +82,24 @@ export const usePlayer = create<PlayerStore>((set, get) => ({
   playing: false,
   position: 0,
   duration: 0,
+  doneNotice: false,
 
   play: (entry) => {
     const a = ensureAudio()
     if (get().entry?.id !== entry.id) {
       set({ entry, position: 0, duration: entry.durationSec })
-      void startEntry(a, entry)
+      void startEntry(a, entry, true)
     } else {
       a.play().catch(reportPlayError)
+    }
+  },
+
+  load: (entry) => {
+    const a = ensureAudio()
+    set({ doneNotice: true })
+    if (get().entry?.id !== entry.id) {
+      set({ entry, position: 0, duration: entry.durationSec })
+      void startEntry(a, entry, false)
     }
   },
 

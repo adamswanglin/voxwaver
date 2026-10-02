@@ -67,18 +67,20 @@ token 缓存复用；风格指令（instruct）与语言标签直接传入生成
 
 | 文件 | 内容 |
 | --- | --- |
-| `crates/omnivoice/src/engine.rs` | 推理引擎：模型常驻、进度回调、取消、参考音频编码 |
+| `crates/omnivoice/src/engine.rs` | 推理引擎：模型常驻、进度回调、取消、参考音频编码、长文本分块与后处理 |
 | `crates/omnivoice/src/generator.rs` | Qwen3 backbone + 迭代 unmasking 采样 |
 | `crates/omnivoice/src/qwen3.rs` | Qwen3 transformer 权重与前向 |
 | `crates/omnivoice/src/dac.rs` | HiggsAudioV2 RVQ + DAC 解码器 |
 | `crates/omnivoice/src/encoder.rs` | 克隆参考编码（HuBERT + 音频 tokenizer） |
 | `crates/omnivoice/src/hubert.rs` | HuBERT 语义编码器 |
-| `crates/omnivoice/src/duration.rs` | 时长估计（长文本切块） |
+| `crates/omnivoice/src/duration.rs` | 时长估计（参考校准 + speed） |
+| `crates/omnivoice/src/text.rs` | 长文本切分（标点分句、缩写保护、min-chunk 合并） |
 | `crates/omnivoice/src/bin/cli.rs` | `omnivoice-cli` 命令行 |
 | `crates/tts-common/` | 取消标志、进度事件、WAV 读写与重采样 |
 | `app/` | Tauri 桌面应用（Rust 后端 + React 前端） |
 
 ## 许可
 
-本仓库代码以 Apache-2.0 发布；模型权重遵循其原始许可，
-详见 [k2-fsa/OmniVoice](https://huggingface.co/k2-fsa/OmniVoice)。
+本仓库代码以 [Apache-2.0](LICENSE) 发布；模型权重遵循其原始许可
+（CC-BY-NC，受训练数据如 Emilia 的约束），详见
+[k2-fsa/OmniVoice](https://huggingface.co/k2-fsa/OmniVoice)。

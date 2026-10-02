@@ -22,7 +22,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["dmg", "app"],
+    "targets": ["dmg", "nsis", "appimage", "deb"],
     "macOS": {
       "infoPlist": "Info.plist"
     },

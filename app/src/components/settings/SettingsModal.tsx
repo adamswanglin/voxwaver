@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { IconClose, IconCube, IconFolder, IconUpload } from '../Icons'
-import { Slider } from '../common/Slider'
 import { formatBytes } from '../../lib/format'
 import { useSettings } from '../../stores/settings'
 import { useView } from '../../stores/view'
@@ -52,8 +51,6 @@ export function SettingsModal() {
   const device = settings?.device === 'cpu' || settings?.device === 'cuda' ? settings.device : 'metal'
   // legacy value from earlier builds
   const uiLang = settings?.language === 'zh-CN' ? 'zh' : (settings?.language ?? 'zh')
-  // sampling params, persisted with the rest of the settings
-  const omniTemperature = settings?.omniTemperature ?? 0
   const seed = settings?.seed ?? 0
 
   return (
@@ -149,22 +146,10 @@ export function SettingsModal() {
                 </div>
               </div>
 
-              {/* 采样参数 */}
+              {/* 生成参数 */}
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="settings-label">采样参数</label>
-                <Slider
-                  label="温度（OmniVoice）"
-                  value={omniTemperature}
-                  min={0}
-                  max={1.5}
-                  step={0.05}
-                  format={(v) => (v === 0 ? '贪心' : v.toFixed(2))}
-                  onChange={(omniTemperature) => patch({ omniTemperature })}
-                />
-                <div className="slider-hint" style={{ marginTop: 6 }}>
-                  0 为贪心解码（与上游 CLI 默认一致）；其余采样超参使用引擎默认值。
-                </div>
-                <div className="form-group" style={{ marginBottom: 0, marginTop: 14 }}>
+                <label className="settings-label">生成参数</label>
+                <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">随机种子</label>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <input

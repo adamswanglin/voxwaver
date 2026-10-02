@@ -21,10 +21,6 @@ pub struct Settings {
     /// Interface language: en | zh | ja | de | fr | es | ko | ar | ru | nl | it | pl | pt.
     /// Also passed to OmniVoice as the `lang` tag.
     pub language: String,
-    /// OmniVoice token sampling temperature (class_temperature);
-    /// 0 = greedy decoding, matching the upstream CLI default.
-    #[serde(default)]
-    pub omni_temperature: f64,
     /// Deterministic seed; reroll from the UI for a new take.
     #[serde(default = "rand_seed")]
     pub seed: u64,
@@ -64,7 +60,6 @@ impl Default for Settings {
             model: default_model(),
             model_dirs: BTreeMap::new(),
             language: "zh".into(),
-            omni_temperature: 0.0,
             seed: rand_seed(),
         }
     }
@@ -92,6 +87,9 @@ pub struct Voice {
     pub language: String,
     #[serde(default)]
     pub tags: Vec<String>,
+    /// optional emoji icon shown in place of the name-letter fallback
+    #[serde(default)]
+    pub icon: Option<String>,
     /// epoch ms
     pub created_at: i64,
     /// Sample duration in seconds (approx, pre-resample).

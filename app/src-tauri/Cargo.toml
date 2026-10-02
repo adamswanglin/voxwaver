@@ -30,3 +30,9 @@ tts-common = { path = "../../crates/tts-common" }
 # Metal acceleration on macOS
 [target.'cfg(target_os = "macos")'.dependencies]
 omnivoice = { path = "../../crates/omnivoice", features = ["metal"] }
+
+# CUDA acceleration on Windows/Linux. omnivoice probes the CUDA stack at
+# startup (try_new_cuda) and falls back to CPU when the libraries are
+# absent, so these builds stay runnable on machines without CUDA.
+[target.'cfg(any(target_os = "windows", target_os = "linux"))'.dependencies]
+omnivoice = { path = "../../crates/omnivoice", features = ["cuda", "cudnn"] }

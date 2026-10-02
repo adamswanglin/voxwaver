@@ -25,6 +25,8 @@ export interface CreateVoiceReq {
   age: string
   style: string
   language: string
+  /** optional emoji icon; null/'' = none */
+  icon: string | null
   samplePath: string
   transcript: string
 }
@@ -37,6 +39,8 @@ export interface UpdateVoiceReq {
   age: string
   style: string
   language: string
+  /** optional emoji icon; null/'' = clear (name-letter fallback) */
+  icon: string | null
   transcript: string
   /** new reference sample; null/empty = keep the existing one */
   samplePath: string | null

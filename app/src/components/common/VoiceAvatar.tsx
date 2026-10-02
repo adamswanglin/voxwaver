@@ -1,4 +1,5 @@
-/** Deterministic pastel avatar SVG from a voice id/name. */
+/** Voice avatar: chosen emoji icon, or the first character of the name on a
+ * deterministic pastel background (hash of the name → stable "random" color). */
 
 const PALETTES: Array<[string, string]> = [
   ['#DBEAFE', '#3B82F6'],
@@ -15,15 +16,50 @@ function hash(s: string): number {
   return Math.abs(h)
 }
 
-export function VoiceAvatar({ name, size = 40 }: { name: string; size?: number }) {
+export function VoiceAvatar({
+  name,
+  icon,
+  size = 40,
+}: {
+  name: string
+  icon?: string | null
+  size?: number
+}) {
   const [bg, fg] = PALETTES[hash(name) % PALETTES.length]
   const r = size / 2
-  const headR = size * 0.16
+  if (icon) {
+    return (
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <circle cx={r} cy={r} r={r} fill={bg} />
+        <text
+          x={r}
+          y={r}
+          fill={fg}
+          fontSize={size * 0.5}
+          dominantBaseline="central"
+          textAnchor="middle"
+        >
+          {icon}
+        </text>
+      </svg>
+    )
+  }
+  // first grapheme (works for CJK, latin and surrogate pairs alike)
+  const ch = Array.from(name.trim())[0] ?? '?'
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       <circle cx={r} cy={r} r={r} fill={bg} />
-      <circle cx={r} cy={r * 0.78} r={headR} fill={fg} />
-      <ellipse cx={r} cy={r * 1.65} rx={headR * 1.75} ry={headR * 1.3} fill={fg} />
+      <text
+        x={r}
+        y={r}
+        fill={fg}
+        fontSize={size * 0.45}
+        fontWeight={600}
+        dominantBaseline="central"
+        textAnchor="middle"
+      >
+        {ch}
+      </text>
     </svg>
   )
 }

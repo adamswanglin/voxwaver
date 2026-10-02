@@ -3202,6 +3202,7 @@ dependencies = [
  "clap",
  "fancy-regex 0.13.0",
  "hound",
+ "libloading 0.9.0",
  "rand 0.8.8",
  "serde",
  "serde_json",

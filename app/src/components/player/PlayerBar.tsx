@@ -9,6 +9,7 @@ import { Waveform } from './Waveform'
 export function PlayerBar() {
   const entry = usePlayer((s) => s.entry)
   const playing = usePlayer((s) => s.playing)
+  const doneNotice = usePlayer((s) => s.doneNotice)
   const position = usePlayer((s) => s.position)
   const duration = usePlayer((s) => s.duration)
   const playPause = usePlayer((s) => s.playPause)
@@ -51,13 +52,19 @@ export function PlayerBar() {
         {formatDuration(position)} / {formatDuration(duration || entry?.durationSec || 0)}
       </span>
       {entry ? (
-        <Waveform
-          key={entry.id}
-          url={playerSrc(entry)}
-          progress={frac}
-          onSeek={seek}
-          height={32}
-        />
+        <div className="player-track">
+          <div className="player-track-text" title={entry.text}>
+            {doneNotice && <span className="player-done-flag">生成完成</span>}
+            <span className="player-text-preview">{entry.text}</span>
+          </div>
+          <Waveform
+            key={entry.id}
+            url={playerSrc(entry)}
+            progress={frac}
+            onSeek={seek}
+            height={26}
+          />
+        </div>
       ) : (
         <div className="waveform-container" />
       )}

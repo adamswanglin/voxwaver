@@ -148,7 +148,7 @@ function VoiceCard({
       )}
       <div className="voice-card-top">
         <span className="voice-card-avatar">
-          <VoiceAvatar name={v.name} size={40} />
+          <VoiceAvatar name={v.name} icon={v.icon} size={40} />
         </span>
         <div>
           <div className="voice-card-name">{v.name}</div>

@@ -31,11 +31,12 @@ pub const LAYER_PENALTY_FACTOR: f64 = 5.0;
 pub const POSITION_TEMPERATURE: f64 = 5.0;
 pub const CLASS_TEMPERATURE: f64 = 0.0;
 
-/// Long-form generation (mirrors the Python pipeline's `audio_chunk_threshold`
-/// / `audio_chunk_duration`): an estimated duration above the threshold is
-/// generated chunk by chunk instead of one oversized pass.
-pub const CHUNK_THRESHOLD_FRAMES: usize = 30 * FRAME_RATE;
-pub const CHUNK_FRAMES: usize = 15 * FRAME_RATE;
+/// Long-form generation + output post-processing defaults (mirrors the
+/// Python pipeline's `OmniVoiceGenerationConfig`).
+pub const AUDIO_CHUNK_DURATION: f64 = 15.0;
+pub const AUDIO_CHUNK_THRESHOLD: f64 = 30.0;
+pub const PAD_DURATION: f64 = 0.1;
+pub const FADE_DURATION: f64 = 0.1;
 /// Chunk stitching: 0.1 s fade-out + 0.1 s silence gap + 0.1 s fade-in per
 /// boundary (the reference `cross_fade_chunks` splits its 0.3 s into thirds).
 pub const CHUNK_FADE_SAMPLES: usize = SAMPLE_RATE as usize / 10;
