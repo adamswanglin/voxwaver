@@ -52,12 +52,15 @@ jobs:
 
       # Sibling checkout satisfying the [patch] path override in the root
       # Cargo.toml ("../candle/candle-core" / "../candle/candle-nn").
-      - name: Checkout candle fork (branch voxwaver)
-        uses: actions/checkout@v4
-        with:
-          repository: adamswanglin/candle
-          ref: voxwaver
-          path: ../candle
+      # actions/checkout refuses paths outside GITHUB_WORKSPACE ("Repository
+      # path ... is not under ..."), so clone the fork manually instead;
+      # plain git has no such restriction. Anonymous clone works because the
+      # fork is public (no token needed).
+      - name: Clone candle fork (branch voxwaver)
+        shell: bash
+        run: |
+          git clone --depth 1 --branch voxwaver \
+            https://github.com/adamswanglin/candle.git ../candle
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
