@@ -117,7 +117,17 @@ jobs:
         if: matrix.platform == 'windows'
         uses: Jimver/cuda-toolkit@v0.2.29
         with:
-          cuda: "12.4.0"
+          cuda: "12.1.0"
+      - name: Set up CUDA library paths (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          echo "LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+          echo "LIBRARY_PATH=/usr/local/cuda/lib64:$LIBRARY_PATH" >> $GITHUB_ENV
+
+      - name: Set up CUDA library paths (Windows)
+        if: matrix.platform == 'windows'
+        run: |
+          echo "LIB=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4\lib\x64;$env:LIB" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Install frontend dependencies
         working-directory: app
