@@ -105,7 +105,7 @@ jobs:
         if: matrix.platform == 'linux'
         uses: Jimver/cuda-toolkit@v0.2.29
         with:
-          cuda: "12.6"
+          cuda: "12.4.0"
 
       # nvcc on Windows requires the MSVC environment (cl.exe on PATH,
       # INCLUDE/LIB set) when the build scripts invoke it.
@@ -117,7 +117,7 @@ jobs:
         if: matrix.platform == 'windows'
         uses: Jimver/cuda-toolkit@v0.2.29
         with:
-          cuda: "12.6"
+          cuda: "12.4.0"
 
       - name: Install frontend dependencies
         working-directory: app
