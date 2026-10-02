@@ -128,6 +128,13 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # CI runners have no GPU, so cudaforge's nvidia-smi probe fails and
+          # the candle-kernels build script aborts. Pick the arch explicitly:
+          # PTX is embedded (driver-JITed forward-compatible), and 80 (Ampere)
+          # matches the fallback candle-kernels itself uses for the moe lib.
+          # Single value only — cudaforge's GpuArch::parse rejects lists.
+          # Consumed only on the Linux/Windows CUDA builds; unused on macOS.
+          CUDA_COMPUTE_CAP: "80"
         with:
           projectPath: app
           # Release upload only for tag pushes; dispatched builds keep the
@@ -137,9 +144,19 @@ jobs:
           releaseDraft: false
           prerelease: false
 
+      # tauri-action's artifactPaths output is a JSON.stringify()'ed array
+      # (["/abs/path", ...]), which upload-artifact cannot parse — it treats
+      # the whole string as one literal path and finds nothing. List the
+      # bundle outputs directly instead. The cargo target dir sits at the
+      # repo root (root Cargo.toml is the workspace root), and non-matching
+      # platform globs are simply ignored by upload-artifact.
       - name: Upload installers as artifacts
         uses: actions/upload-artifact@v4
         with:
           name: voxweaver-${{ matrix.platform }}
-          path: ${{ steps.tauri.outputs.artifactPaths }}
+          path: |
+            target/release/bundle/dmg/*.dmg
+            target/release/bundle/nsis/*.exe
+            target/release/bundle/appimage/*.AppImage
+            target/release/bundle/deb/*.deb
           if-no-files-found: error
