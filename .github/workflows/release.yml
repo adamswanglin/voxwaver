@@ -117,7 +117,7 @@ jobs:
         if: matrix.platform == 'windows'
         uses: Jimver/cuda-toolkit@v0.2.29
         with:
-          cuda: "12.1.0"
+          cuda: "12.4.0"
       - name: Set up CUDA library paths (Linux)
         if: matrix.platform == 'linux'
         run: |
