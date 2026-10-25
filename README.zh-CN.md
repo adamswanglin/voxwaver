@@ -12,6 +12,16 @@
 
 </div>
 
+## 界面截图
+
+**工作台**：输入文本、选择声音，一键生成语音
+
+![工作台](example/workspace.jpg)
+
+**声音库**：零样本克隆声音，卡片可直接试听
+
+![声音库](example/voices.jpg)
+
 ## 安装
 
 从 [GitHub Releases](https://github.com/adamswanglin/voxwaver/releases) 下载对应平台的安装包，安装后即可直接使用：

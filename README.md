@@ -12,6 +12,16 @@ Install and use right away · Fully offline · macOS Metal / NVIDIA CUDA acceler
 
 </div>
 
+## Screenshots
+
+**Workspace** — type your text, pick a voice, generate speech in one click
+
+![Workspace](example/workspace.jpg)
+
+**Voice Library** — zero-shot voice cloning with instant preview
+
+![Voice Library](example/voices.jpg)
+
 ## Installation
 
 Grab the installer for your platform from
